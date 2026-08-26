@@ -1,0 +1,15 @@
+# A .pubignore REPLACES .gitignore for packaging rather than adding to it, so
+# everything .gitignore keeps out of the repository has to be repeated here —
+# without it the 44 MB test cache under build/ ships to every consumer.
+.dart_tool/
+.packages
+build/
+pubspec.lock
+.idea/
+*.iml
+.DS_Store
+
+# The demo lives in the repository, and the README points at it there by
+# absolute URL. Shipping it would make every consumer download a picture none
+# of them renders.
+doc/

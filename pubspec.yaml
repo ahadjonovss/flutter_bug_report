@@ -1,0 +1,35 @@
+name: flutter_bug_report
+description: >-
+  Flutter bug reports with the log already attached. Captures logger output,
+  debugPrint and crashes, redacts secrets, and builds a bounded txt/json/zip.
+  No vendor, no SDK.
+
+version: 0.1.0
+repository: https://github.com/ahadjonovss/flutter_bug_report
+issue_tracker: https://github.com/ahadjonovss/flutter_bug_report/issues
+
+topics:
+  - bug-report
+  - logging
+  - crash-reporting
+  - diagnostics
+  - debugging
+
+environment:
+  sdk: ^3.6.0
+  flutter: '>=3.24.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Zip bundles. The one format every ticket system takes without asking.
+  archive: ^4.0.0
+
+  # Where a bundle lands when the caller does not name a directory.
+  path_provider: ^2.1.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

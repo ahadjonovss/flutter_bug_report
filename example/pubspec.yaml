@@ -1,0 +1,14 @@
+name: flutter_bug_report_example
+description: Collects a session and builds a bug report bundle from it.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ^3.6.0
+  flutter: '>=3.24.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_bug_report:
+    path: ../
