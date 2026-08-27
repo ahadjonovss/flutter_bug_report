@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter_bug_report/src/bundle/bundle.dart';
 import 'package:flutter_bug_report/src/bundle/bundle_builder.dart';
 import 'package:flutter_bug_report/src/bundle/bundle_format.dart';
 import 'package:flutter_bug_report/src/capture/console_capture.dart';
+import 'package:flutter_bug_report/src/context/device_facts.dart';
 import 'package:flutter_bug_report/src/capture/error_capture.dart';
 import 'package:flutter_bug_report/src/model/log_entry.dart';
 import 'package:flutter_bug_report/src/model/log_level.dart';
@@ -50,6 +52,7 @@ abstract final class BugReport {
     minimumLevel: LogLevel.debug,
     builder: const BundleBuilder(),
     isImplicit: true,
+    deviceFacts: true,
   );
 
   /// Whether [init] has run. Collection works either way.
@@ -70,12 +73,18 @@ abstract final class BugReport {
   /// what the framework catches. Neither displaces what was installed before
   /// them: the console still prints, and an existing crash reporter still
   /// reports.
+  ///
+  /// [deviceFacts] folds in what Flutter itself knows — platform, OS version,
+  /// locale, screen, build mode. Non-identifying by construction: nothing here
+  /// reads a device id, and anything more specific is yours to pass through
+  /// `metadata`. Pass false to send none of it.
   static Future<void> init({
     LogStore? store,
     List<Redactor>? redactors,
     LogLevel minimumLevel = LogLevel.debug,
     bool captureConsole = true,
     bool captureErrors = true,
+    bool deviceFacts = true,
     BundleBuilder builder = const BundleBuilder(),
   }) async {
     // Whatever was logged on the way here, before anyone could configure
@@ -96,7 +105,10 @@ abstract final class BugReport {
       minimumLevel: minimumLevel,
       builder: builder,
       isImplicit: false,
+      deviceFacts: deviceFacts,
     );
+
+    runtime.userId = previous?.userId;
 
     // Already redacted — they went through the fallback runtime on the way in.
     for (final entry in carried) {
@@ -178,6 +190,7 @@ abstract final class BugReport {
     int? limit,
     int maxBytes = BundleBuilder.defaultMaxBytes,
     int stackFrames = BundleBuilder.defaultStackFrames,
+    Uint8List? screenshot,
   }) => _active.build(
     description: description,
     metadata: metadata,
@@ -185,7 +198,18 @@ abstract final class BugReport {
     limit: limit,
     maxBytes: maxBytes,
     stackFrames: stackFrames,
+    screenshot: screenshot,
   );
+
+  /// Ties what is collected from here on to one person, by whatever id you
+  /// already use for them.
+  ///
+  /// An id and nothing else — a name, a phone number and an email are yours to
+  /// send or not, through `metadata`, having decided it. Pass null on sign-out.
+  static void identify(String? id) {
+    _active.userId = id;
+    BugReport.info(id == null ? 'signed out' : 'signed in as $id');
+  }
 
   /// The entries as they are held, redaction already applied. For an app that
   /// wants to show its own log screen rather than attach a file.
@@ -224,12 +248,19 @@ class _Runtime {
     required this.minimumLevel,
     required this.builder,
     required this.isImplicit,
+    required this.deviceFacts,
   });
 
   final LogStore store;
   final List<Redactor> redactors;
   final LogLevel minimumLevel;
   final BundleBuilder builder;
+
+  /// Whether to fold in what Flutter itself knows about the phone.
+  final bool deviceFacts;
+
+  /// Who is signed in, if [BugReport.identify] was told.
+  String? userId;
 
   /// Whether this was made on demand by a log call rather than by `init`.
   /// What `init` carries forward, and what `isInitialised` reports on.
@@ -274,6 +305,7 @@ class _Runtime {
     int? limit,
     int maxBytes = BundleBuilder.defaultMaxBytes,
     int stackFrames = BundleBuilder.defaultStackFrames,
+    Uint8List? screenshot,
   }) async {
     // Anything logged up to this call belongs in the bundle — including the
     // line the report itself was logged from.
@@ -283,9 +315,15 @@ class _Runtime {
       entries: entries,
       format: format,
       description: description,
-      metadata: metadata,
+      metadata: {
+        ...deviceFacts ? DeviceFacts.collect() : const <String, String>{},
+        if (userId != null) 'user_id': userId!,
+        // Yours last, so anything you pass wins over what was guessed.
+        ...metadata,
+      },
       maxBytes: maxBytes,
       stackFrames: stackFrames,
+      screenshot: screenshot,
     );
   }
 

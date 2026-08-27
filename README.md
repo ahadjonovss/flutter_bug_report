@@ -80,6 +80,81 @@ metadata:
   <asynchronous suspension>
 ```
 
+
+## Everything else is optional
+
+The collector and the sheet are the whole package. What follows is off until
+you switch it on, and the ones that could carry somebody's details stay off
+until you have thought about it.
+
+### The route they took
+
+The most useful line in a bug report is often not an error — it is which screens
+they passed through to reach one.
+
+```dart
+MaterialApp(navigatorObservers: [BugReportObserver()]);
+GoRouter(observers: [BugReportObserver()]);
+```
+
+```
+route: push /clients ← /home
+route: push /clients/details ← /clients
+route: push /payment ← /clients/details
+```
+
+Route **names** only, never their arguments — an argument is where the client id
+and the phone number live.
+
+### A screenshot
+
+```dart
+BugReportWrapper(withScreenshot: true, ...)
+```
+
+Off by default, and that is the right default. A screenshot carries whatever the
+screen carried, and unlike a log it **cannot be redacted** — nothing here can
+read what is in it. Switched on, the sheet shows the person the picture before
+it goes and one tap drops it. Nobody should find out afterwards what they sent.
+
+It lands as `screenshot.png` inside the zip, captured before the sheet opens so
+it shows the screen being reported rather than the form reporting it.
+
+### A log that survives the crash
+
+`MemoryLogStore` loses everything the process loses — including, at the worst
+moment, the lines that explain why the process died.
+
+```dart
+await BugReport.init(store: FileLogStore(retention: Duration(days: 3)));
+```
+
+**Opt in knowingly.** A file on disk outlives the session, and a phone that is
+shared, repaired or sold carries it along. Before switching it on: check your
+redactors cover what your app logs, keep `retention` as short as you can stand,
+and call `BugReport.clear()` on sign-out.
+
+### Who it happened to
+
+```dart
+BugReport.identify(user.id);   // and identify(null) on sign-out
+```
+
+An id and nothing else. A name, a phone number and an email are yours to send or
+not, through `metadata`.
+
+### What the phone is
+
+Folded in automatically, from what Flutter itself knows:
+
+```
+platform · os_version · locale · screen · pixel_ratio · text_scale · build_mode
+```
+
+Non-identifying by construction — nothing here reads a device id, and anything
+more specific is yours to pass. `BugReport.init(deviceFacts: false)` sends none
+of it. Whatever you pass in `metadata` wins over what was collected.
+
 ## Install
 
 ```yaml

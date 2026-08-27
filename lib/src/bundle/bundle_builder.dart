@@ -35,6 +35,7 @@ class BundleBuilder {
     int maxBytes = defaultMaxBytes,
     int stackFrames = defaultStackFrames,
     DateTime? generatedAt,
+    Uint8List? screenshot,
   }) {
     final stamp = generatedAt ?? DateTime.now();
 
@@ -55,6 +56,7 @@ class BundleBuilder {
         'description': description,
       'entry_count': kept.length,
       'truncated': truncated,
+      if (screenshot != null) 'screenshot': 'screenshot.png',
       if (metadata.isNotEmpty) 'metadata': metadata,
     };
 
@@ -66,6 +68,7 @@ class BundleBuilder {
         report: report,
         entries: kept,
         stackFrames: stackFrames,
+        screenshot: screenshot,
       ),
     };
 
@@ -179,6 +182,7 @@ class BundleBuilder {
     required Map<String, Object?> report,
     required List<LogEntry> entries,
     required int stackFrames,
+    Uint8List? screenshot,
   }) {
     final logs = _utf8(_asText(const {}, entries, stackFrames));
     final meta = _utf8(_asJson(report, entries));
@@ -186,6 +190,14 @@ class BundleBuilder {
     final archive = Archive()
       ..addFile(ArchiveFile('logs.txt', logs.length, logs))
       ..addFile(ArchiveFile('report.json', meta.length, meta));
+
+    // Only in a zip. The text and json forms are meant to be read as text, and
+    // a base64 PNG pasted into them would be neither readable nor small.
+    if (screenshot != null) {
+      archive.addFile(
+        ArchiveFile('screenshot.png', screenshot.length, screenshot),
+      );
+    }
 
     final encoded = ZipEncoder().encode(archive);
 
