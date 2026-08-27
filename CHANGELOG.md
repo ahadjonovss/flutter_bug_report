@@ -1,3 +1,9 @@
+## 0.1.1
+
+- `Bundle` now carries the `metadata` it was built with. Whatever files the
+  bundle usually wants the same facts beside it — as tags on an event, as fields
+  on a form — and reading them back out of a zip to do that would be absurd.
+
 ## 0.1.0
 
 First release under this name. Previously published as `log_bundle`, which is

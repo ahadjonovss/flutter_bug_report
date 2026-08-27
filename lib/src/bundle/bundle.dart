@@ -17,6 +17,7 @@ class Bundle {
     required this.format,
     required this.entryCount,
     required this.truncated,
+    this.metadata = const {},
   });
 
   final Uint8List bytes;
@@ -34,6 +35,14 @@ class Bundle {
   /// How many entries made it in — which is not how many were logged, if the
   /// bundle hit a limit.
   final int entryCount;
+
+  /// What was passed as `metadata` when this was built.
+  ///
+  /// Handed back rather than only written into the file, because whatever
+  /// files the bundle usually wants the same facts beside it — as tags on an
+  /// event, as fields on a form — and reading them back out of a zip to do
+  /// that would be absurd.
+  final Map<String, String> metadata;
 
   /// Whether a limit cut the log short. Worth saying out loud in the ticket:
   /// the reader is looking at the end of a session, not the whole of it.

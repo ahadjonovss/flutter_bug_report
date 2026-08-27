@@ -75,6 +75,7 @@ class BundleBuilder {
       format: format,
       entryCount: kept.length,
       truncated: truncated,
+      metadata: metadata,
     );
   }
 
