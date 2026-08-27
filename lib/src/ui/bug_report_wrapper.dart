@@ -110,10 +110,40 @@ class _BugReportWrapperState extends State<BugReportWrapper> {
   /// top of another.
   bool _isOpen = false;
 
+
   /// Wraps the app when — and only when — a screenshot may be taken. A
   /// repaint boundary is not free, and an app that will never capture one
   /// should not pay for it.
   final GlobalKey _boundary = GlobalKey();
+
+  /// A context that can actually open a modal sheet.
+  ///
+  /// The natural way to install this is above `MaterialApp` —
+  /// `runApp(BugReportWrapper(child: MaterialApp(...)))` — and that puts our
+  /// own context *outside* Material, where `showModalBottomSheet` throws for
+  /// want of `MaterialLocalizations`. Rather than make everyone wire a
+  /// `navigatorKey` for the common case, look down the tree for the navigator
+  /// the app already has.
+  ///
+  /// Falls back to our own context, which is the right one when this is
+  /// installed inside the app instead — as `MaterialApp(builder: ...)`.
+  BuildContext _navigatorContext() {
+    BuildContext? found;
+
+    void search(Element element) {
+      if (found != null) return;
+      if (element.widget is Navigator) {
+        found = element;
+
+        return;
+      }
+      element.visitChildren(search);
+    }
+
+    if (mounted) context.visitChildElements(search);
+
+    return found ?? context;
+  }
 
   Future<void> _open() async {
     if (_isOpen) return;
@@ -127,7 +157,7 @@ class _BugReportWrapperState extends State<BugReportWrapper> {
           )
         : null;
 
-    final context = widget.navigatorKey?.currentContext ?? this.context;
+    final context = widget.navigatorKey?.currentContext ?? _navigatorContext();
     if (!context.mounted) return;
 
     _isOpen = true;

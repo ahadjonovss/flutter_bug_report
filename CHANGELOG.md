@@ -1,3 +1,20 @@
+## 0.2.1
+
+Setup was not as easy as 0.2.0 claimed. Found by writing the naive setup out
+and running it.
+
+- **`BugReportWrapper` above `MaterialApp` threw.** The documented snippet —
+  `runApp(BugReportWrapper(child: MaterialApp(...)))` — put the wrapper's own
+  context outside Material, where opening a sheet fails for want of
+  `MaterialLocalizations`. The fix in 0.2.0 was to pass a `navigatorKey`, which
+  is exactly the wiring this package exists to avoid. The wrapper now finds the
+  app's navigator itself, and works above `MaterialApp` or inside its `builder`.
+- `BugReport.init()` is no longer needed for the wrapper to work. Collection
+  starts on its own; `init` is for redactors, a persistent store, and capture of
+  `debugPrint` and the framework's errors.
+- The README's install section still described 0.1.x and never introduced the
+  sheet or the wrapper at all. Rewritten around what the package now does.
+
 ## 0.2.0
 
 A UI, and everything around the log that makes a report worth reading. All of it

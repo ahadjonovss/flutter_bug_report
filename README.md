@@ -159,21 +159,75 @@ of it. Whatever you pass in `metadata` wins over what was collected.
 
 ```yaml
 dependencies:
-  flutter_bug_report: ^0.1.0
+  flutter_bug_report: ^0.2.0
 ```
+
+### With the built-in sheet
+
+```dart
+runApp(
+  BugReportWrapper(
+    onSubmit: (bundle, description) => myBackend.upload(bundle),
+    child: MaterialApp(...),
+  ),
+);
+```
+
+That is the whole setup. No `init`, no `navigatorKey`, no `async main`: the
+wrapper starts collection itself and finds your app's navigator on its own, so
+it works wrapped above `MaterialApp` or inside its `builder`.
+
+A long press anywhere opens the sheet. `trigger: BugReportTrigger.doubleTap` or
+`.none` if you would rather open it yourself, and `enabled: false` — a plain
+bool, so a `const` folds the whole thing out of a release build.
+
+`onSubmit` is the one thing you must write, and it is the point: the package
+builds the file and never decides where it goes.
+
+### Or without any UI
+
+```dart
+final bundle = await BugReport.build(
+  description: whateverTheyTyped,
+  metadata: {'app_version': '1.0.17+2185'},
+);
+
+await myBackend.upload(bundle.bytes, bundle.fileName, bundle.mimeType);
+```
+
+### When you want more than the default
 
 ```dart
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await BugReport.init();   // before runApp, so the log covers startup
+  await BugReport.init(              // before runApp, so the log covers startup
+    redactors: [...Redactor.defaults, Redactor.keys({'merchant_pin'})],
+  );
   runApp(const MyApp());
 }
 ```
 
-Calling `BugReport.info(...)` **before** `init()` collects rather than throws or
-silently drops — the lines that explain a startup bug are written before anything
-has had a chance to be configured, and `init()` carries them forward into
-whatever store you gave it.
+`init` is where redactors, a persistent store, and capture of `debugPrint` and
+the framework's own errors are switched on. The implicit setup leaves
+`debugPrint` alone on purpose — swapping a global nobody asked for turns up as a
+failing assertion in *your* widget tests.
+
+Logging **before** `init()` collects rather than throws or silently drops, and
+`init()` carries those entries forward: the lines that explain a startup bug are
+written before anything has had a chance to be configured.
+
+### Making it yours
+
+```dart
+BugReportWrapper(
+  strings: BugReportStrings(title: l10n.reportTitle, send: l10n.send),
+  theme: const BugReportTheme(accent: Color(0xFF1B4FD8), radius: 20),
+  ...
+)
+```
+
+Every word is a parameter and every colour falls back to your own `ThemeData`,
+so the sheet reads as part of the app rather than as a package bolted onto it.
 
 ## What it collects
 
