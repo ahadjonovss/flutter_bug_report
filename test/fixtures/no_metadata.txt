@@ -1,0 +1,8 @@
+=== flutter_bug_report ===
+generated_at: 2026-08-26T07:19:11.214967Z
+entry_count: 2
+truncated: false
+==================
+
+2026-08-26T07:19:11.214967Z INFO    signed in
+2026-08-26T07:19:11.217967Z DEBUG   cache warm

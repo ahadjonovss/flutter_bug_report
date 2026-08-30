@@ -13,3 +13,9 @@ pubspec.lock
 # absolute URL. Shipping it would make every consumer download a picture none
 # of them renders.
 doc/
+
+# Golden bundles, for the log viewer that parses this format from another
+# repository. It takes them from GitHub; a consumer of the package has no use
+# for twenty-two sample files, and the test that writes them regenerates any
+# that are missing.
+test/fixtures/

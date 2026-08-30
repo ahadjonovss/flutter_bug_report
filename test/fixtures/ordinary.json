@@ -1,0 +1,47 @@
+{
+  "report": {
+    "generated_at": "2026-08-26T07:19:11.214967Z",
+    "description": "The client list was empty after I pressed refresh",
+    "entry_count": 5,
+    "truncated": false,
+    "metadata": {
+      "app_version": "1.0.17+2185",
+      "platform": "android",
+      "os_version": "Android 14"
+    }
+  },
+  "entries": [
+    {
+      "time": "2026-08-26T07:19:11.214967Z",
+      "level": "info",
+      "message": "signed in"
+    },
+    {
+      "time": "2026-08-26T07:19:11.222967Z",
+      "level": "info",
+      "message": "GET /clients",
+      "extra": {
+        "status": 500,
+        "authorization": "Bearer «redacted»",
+        "ms": 1840
+      }
+    },
+    {
+      "time": "2026-08-26T07:19:11.223967Z",
+      "level": "warning",
+      "message": "retrying in 2s"
+    },
+    {
+      "time": "2026-08-26T07:19:11.224967Z",
+      "level": "info",
+      "message": "paid with card ************4242"
+    },
+    {
+      "time": "2026-08-26T07:19:11.225967Z",
+      "level": "error",
+      "message": "could not load clients",
+      "error": "Bad state: clients came back null",
+      "stack_trace": "#0      ClientsCubit.load (package:app/clients_cubit.dart:41:7)\n#1      _rootRunUnary (dart:async/zone.dart:1407:13)\n<asynchronous suspension>"
+    }
+  ]
+}

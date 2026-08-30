@@ -1,0 +1,19 @@
+{
+  "report": {
+    "generated_at": "2026-08-26T07:19:11.214967Z",
+    "entry_count": 2,
+    "truncated": false
+  },
+  "entries": [
+    {
+      "time": "2026-08-26T07:19:11.214967Z",
+      "level": "info",
+      "message": "signed in"
+    },
+    {
+      "time": "2026-08-26T07:19:11.217967Z",
+      "level": "debug",
+      "message": "cache warm"
+    }
+  ]
+}

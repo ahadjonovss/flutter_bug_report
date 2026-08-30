@@ -1,0 +1,16 @@
+=== flutter_bug_report ===
+generated_at: 2026-08-26T07:19:11.214967Z
+description: it has been slow all morning
+entry_count: 5
+truncated: true
+metadata:
+  app_version: 1.0.17+2185
+  platform: android
+  os_version: Android 14
+==================
+
+2026-08-26T07:19:11.249967Z INFO    line 35 of a session that ran long
+2026-08-26T07:19:11.250967Z INFO    line 36 of a session that ran long
+2026-08-26T07:19:11.251967Z INFO    line 37 of a session that ran long
+2026-08-26T07:19:11.252967Z INFO    line 38 of a session that ran long
+2026-08-26T07:19:11.253967Z INFO    line 39 of a session that ran long

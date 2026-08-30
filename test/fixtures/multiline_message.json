@@ -1,0 +1,30 @@
+{
+  "report": {
+    "generated_at": "2026-08-26T07:19:11.214967Z",
+    "description": "it crashed on the clients screen",
+    "entry_count": 3,
+    "truncated": false,
+    "metadata": {
+      "app_version": "1.0.17+2185",
+      "platform": "android",
+      "os_version": "Android 14"
+    }
+  },
+  "entries": [
+    {
+      "time": "2026-08-26T07:19:11.214967Z",
+      "level": "info",
+      "message": "opened the clients screen"
+    },
+    {
+      "time": "2026-08-26T07:19:11.218967Z",
+      "level": "debug",
+      "message": "══╡ EXCEPTION CAUGHT BY WIDGETS LIBRARY ╞═══════════════════════\nThe following assertion was thrown building ClientsPage:\nA RenderFlex overflowed by 42 pixels on the bottom."
+    },
+    {
+      "time": "2026-08-26T07:19:11.223967Z",
+      "level": "error",
+      "message": "could not load clients"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+=== flutter_bug_report ===
+generated_at: 2026-08-26T07:19:11.214967Z
+description: The client list was empty after I pressed refresh
+entry_count: 5
+truncated: false
+metadata:
+  app_version: 1.0.17+2185
+  platform: android
+  os_version: Android 14
+==================
+
+2026-08-26T07:19:11.214967Z INFO    signed in
+2026-08-26T07:19:11.222967Z INFO    GET /clients
+  {"status":500,"authorization":"Bearer «redacted»","ms":1840}
+2026-08-26T07:19:11.223967Z WARNING retrying in 2s
+2026-08-26T07:19:11.224967Z INFO    paid with card ************4242
+2026-08-26T07:19:11.225967Z ERROR   could not load clients
+  Bad state: clients came back null
+  #0      ClientsCubit.load (package:app/clients_cubit.dart:41:7)
+  #1      _rootRunUnary (dart:async/zone.dart:1407:13)
+  <asynchronous suspension>

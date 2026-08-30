@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'dart:convert';
 
 import 'package:archive/archive.dart';
@@ -157,6 +159,68 @@ void main() {
       expect(bundle.entryCount, 0);
       expect(bundle.truncated, isFalse);
       expect(jsonDecode(_text(bundle)), isA<Map<String, dynamic>>());
+    });
+  });
+
+  group('a screenshot', () {
+    test('is named in a zip, which is the only place it can be', () {
+      final bundle = builder.build(
+        entries: _entries(1),
+        format: BundleFormat.zip,
+        generatedAt: stamp,
+        screenshot: Uint8List.fromList([1, 2, 3]),
+      );
+
+      final report = jsonDecode(
+        utf8.decode(
+          ZipDecoder()
+              .decodeBytes(bundle.bytes)
+              .files
+              .firstWhere((file) => file.name == 'report.json')
+              .content as List<int>,
+        ),
+      ) as Map<String, dynamic>;
+
+      expect(report['report']['screenshot'], 'screenshot.png');
+    });
+
+    /// A single document has nowhere to put a PNG, so a report that names one
+    /// sends its reader looking for a file that was never there. Wrong through
+    /// 0.3.0, which is why a viewer still has to survive the claim.
+    test('is not named in text or json, where it cannot be', () {
+      for (final format in [BundleFormat.text, BundleFormat.json]) {
+        final bundle = builder.build(
+          entries: _entries(1),
+          format: format,
+          generatedAt: stamp,
+          screenshot: Uint8List.fromList([1, 2, 3]),
+        );
+
+        expect(
+          _text(bundle),
+          isNot(contains('screenshot')),
+          reason: '${format.name} claimed an attachment it cannot carry',
+        );
+      }
+    });
+  });
+
+  group('a header value spanning lines', () {
+    /// The sheet takes four lines, so this is reachable by anyone who presses
+    /// Enter. Unwrapped, it turns one field into several to anything reading
+    /// the header back.
+    test('is wrapped, so it stays one field', () {
+      final bundle = builder.build(
+        entries: _entries(1),
+        format: BundleFormat.text,
+        description: 'I pressed refresh\nand then pay',
+        generatedAt: stamp,
+      );
+
+      expect(
+        _text(bundle),
+        contains('description: I pressed refresh\n  and then pay\n'),
+      );
     });
   });
 

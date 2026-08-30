@@ -1,0 +1,25 @@
+{
+  "report": {
+    "generated_at": "2026-08-26T07:19:11.214967Z",
+    "description": "it has been slow all morning",
+    "entry_count": 2,
+    "truncated": true,
+    "metadata": {
+      "app_version": "1.0.17+2185",
+      "platform": "android",
+      "os_version": "Android 14"
+    }
+  },
+  "entries": [
+    {
+      "time": "2026-08-26T07:19:11.252967Z",
+      "level": "info",
+      "message": "line 38 of a session that ran long"
+    },
+    {
+      "time": "2026-08-26T07:19:11.253967Z",
+      "level": "info",
+      "message": "line 39 of a session that ran long"
+    }
+  ]
+}

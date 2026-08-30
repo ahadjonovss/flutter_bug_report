@@ -1,3 +1,37 @@
+## 0.3.1
+
+Two format defects, found by writing a parser against the output instead of
+against the description of it.
+
+- **A `.txt` or `.json` bundle claimed a screenshot it could not carry.** The
+  `screenshot: screenshot.png` line went into the report for every format, but
+  only a zip has anywhere to put the file — so a report built as json with a
+  screenshot attached named an attachment that was never in it, and sent
+  whoever read it looking for a file that does not exist. Named in a zip only
+  now.
+- **A description with a line break in it broke the text header.** The sheet
+  takes four lines, so this is reachable by anyone who presses Enter, and the
+  second line landed in the header looking like a field of its own.
+  Continuation lines are wrapped two-space indented, like the metadata block —
+  wrapped rather than escaped, because the header exists to be read and `\n`
+  in the middle of somebody's sentence reads worse than the wrap.
+
+**Added — golden bundles**
+
+`test/fixtures/` now holds bundles written by the builder itself, one per case
+worth getting wrong: a multi-line message (a Flutter error banner arrives
+through `debugPrint` as one string, so an entry boundary cannot be "a line that
+is not indented"), a multi-line description, every optional field absent at
+once, `truncated: true`, a screenshot, and an empty session — in all three
+formats.
+
+They are here for a second reader: a log viewer parses this format from another
+repository and another language, and a parser written against a description of
+a format drifts from it the first time the format changes and nobody remembers
+to say so. Deleting the directory and running the suite regenerates them, so
+the diff of a format change is reviewable line by line. Not shipped to
+consumers of the package.
+
 ## 0.3.0
 
 Written against a real integration report. Most of what follows is somebody

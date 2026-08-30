@@ -1,0 +1,14 @@
+{
+  "report": {
+    "generated_at": "2026-08-26T07:19:11.214967Z",
+    "description": "nothing happens when I tap it",
+    "entry_count": 0,
+    "truncated": false,
+    "metadata": {
+      "app_version": "1.0.17+2185",
+      "platform": "android",
+      "os_version": "Android 14"
+    }
+  },
+  "entries": []
+}

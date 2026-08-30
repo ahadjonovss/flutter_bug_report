@@ -56,7 +56,12 @@ class BundleBuilder {
         'description': description,
       'entry_count': kept.length,
       'truncated': truncated,
-      if (screenshot != null) 'screenshot': 'screenshot.png',
+      // Only where the file can actually be. A zip carries the PNG beside
+      // the log; text and json are single documents with nowhere to put it,
+      // and a report naming an attachment that cannot be in the same file
+      // sends its reader looking for something that was never there.
+      if (screenshot != null && format == BundleFormat.zip)
+        'screenshot': 'screenshot.png',
       if (metadata.isNotEmpty) 'metadata': metadata,
     };
 
@@ -128,7 +133,15 @@ class BundleBuilder {
             buffer.writeln('  ${item.key}: ${item.value}');
           }
         } else {
-          buffer.writeln('${field.key}: $value');
+          // Wrapped rather than escaped: the header exists to be read, and
+          // `\n` written out in the middle of somebody's sentence is worse
+          // reading than the wrap. Two spaces, like the metadata block, so a
+          // description with a line break in it stays one field to a parser.
+          final lines = '$value'.split('\n');
+          buffer.writeln('${field.key}: ${lines.first}');
+          for (final rest in lines.skip(1)) {
+            buffer.writeln('  $rest');
+          }
         }
       }
       buffer.writeln('=' * 18);
