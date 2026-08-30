@@ -1,3 +1,26 @@
+## 0.3.2
+
+Documentation only — no library change, nothing to migrate.
+
+- **A viewer for the bundles.** A bundle in a ticket still had to be read by
+  somebody, and that meant downloading a zip, unzipping it and scrolling
+  `logs.txt` in an editor. [The viewer][viewer] takes all three formats and
+  shows the shape of the session before a word of it is read: the quiet
+  stretch, the gap where nothing was logged, the burst where it went wrong.
+
+  It runs entirely in the page — no upload, no server, no request of any kind,
+  because its own `Content-Security-Policy` forbids one. That is a property
+  somebody can check rather than a promise they have to take, which is the only
+  version of this claim worth making for a package whose whole argument is that
+  your logs are nobody else's business. It is tested against this repository's
+  own `test/fixtures/`, so the two cannot drift.
+
+- A logo, shared by the package and the viewer. It is the density strip the
+  viewer draws — quiet, a gap, then the burst. Not a metaphor for what the tool
+  does; a picture of what it shows.
+
+[viewer]: https://ahadjonovss.github.io/flutter_bug_report_viewer/
+
 ## 0.3.1
 
 Two format defects, found by writing a parser against the output instead of

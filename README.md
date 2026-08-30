@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/ahadjonovss/flutter_bug_report/main/doc/logo.svg" width="72" alt="">
+</p>
+
 <h1 align="center">flutter_bug_report</h1>
 
 <p align="center">
@@ -366,6 +370,27 @@ bundle.mimeType;           // application/zip
 await bundle.writeTo();    // File, in the temp directory by default
 ```
 
+## Reading one
+
+A bundle in a ticket still has to be read by somebody, and that should not mean
+downloading a zip, unzipping it and scrolling `logs.txt` in a text editor.
+
+**[Open a bundle in the viewer](https://ahadjonovss.github.io/flutter_bug_report_viewer/)**
+
+Takes `.txt`, `.json` and `.zip`. Filter by level, search, jump between errors,
+and see the metadata and the screenshot beside the log — with a strip across the
+top that shows the shape of the session before you read a word of it: the quiet
+stretch, the gap where nothing was logged, the burst where it went wrong.
+
+It runs entirely in the page. No upload, no server, no request of any kind — the
+page's own `Content-Security-Policy` forbids one, so it is a property you can
+check rather than a promise you have to take. Save the page and it works with no
+network at all.
+
+[Source](https://github.com/ahadjonovss/flutter_bug_report_viewer), and the
+golden bundles it is tested against are this repository's own
+[`test/fixtures/`](test/fixtures).
+
 ## Storage
 
 `MemoryLogStore` is the default. It keeps nothing on the device: no file to grow
@@ -567,6 +592,9 @@ void main() async {
   none of it, and anything you pass in `metadata` wins over what was collected.
   Anything more specific than that is yours to add, never ours to guess.
 - `BugReport.clear()` on sign-out, if the log could name the person who just left.
+- The [viewer](https://ahadjonovss.github.io/flutter_bug_report_viewer/) sends
+  nothing either. It parses the bundle in the browser and has no network code —
+  the same shape as the package.
 
 ## License
 
