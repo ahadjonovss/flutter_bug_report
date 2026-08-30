@@ -1,0 +1,13 @@
+=== flutter_bug_report ===
+generated_at: 2026-08-26T07:19:11.214967Z
+description: the button is off the screen
+entry_count: 1
+truncated: false
+screenshot: screenshot.png
+metadata:
+  app_version: 1.0.17+2185
+  platform: android
+  os_version: Android 14
+==================
+
+2026-08-26T07:19:11.214967Z WARNING layout overflowed

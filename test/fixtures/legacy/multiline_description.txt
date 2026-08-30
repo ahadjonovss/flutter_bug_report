@@ -1,0 +1,14 @@
+=== flutter_bug_report ===
+generated_at: 2026-08-26T07:19:11.214967Z
+description: I pressed refresh
+and then pay
+and the list was still empty
+entry_count: 1
+truncated: false
+metadata:
+  app_version: 1.0.17+2185
+  platform: android
+  os_version: Android 14
+==================
+
+2026-08-26T07:19:11.214967Z INFO    opened the payment screen
