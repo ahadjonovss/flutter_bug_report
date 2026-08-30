@@ -167,6 +167,32 @@ final List<Fixture> fixtures = [
     entries: [_entry(0, LogLevel.warning, 'layout overflowed')],
   ),
   Fixture(
+    name: 'timeline',
+    why: 'A session with a real shape: a quiet stretch, a gap where nothing '
+        'was logged, then everything going wrong at once. Every other fixture '
+        'is stamped to the same instant so a regenerated file differs only '
+        'where the builder changed — which makes them useless for anything '
+        'that draws time. This one is for that.',
+    description: 'it froze for a while and then died',
+    metadata: _ordinaryMetadata,
+    formats: BundleFormat.values,
+    entries: [
+      for (var i = 0; i < 6; i++)
+        _entry(i * 900, LogLevel.info, 'polling for updates ($i)'),
+      // Nothing for half a minute. The gap is the point.
+      _entry(36000, LogLevel.info, 'user tapped pay'),
+      _entry(36200, LogLevel.warning, 'no response in 200ms'),
+      for (var i = 0; i < 5; i++)
+        _entry(
+          36400 + i * 40,
+          LogLevel.error,
+          'payment call failed, attempt ${i + 1}',
+          error: 'TimeoutException after 0:00:30.000000',
+        ),
+      _entry(37000, LogLevel.error, 'giving up'),
+    ],
+  ),
+  Fixture(
     name: 'empty',
     why: 'A report filed before anything was logged. Still a bundle.',
     description: 'nothing happens when I tap it',

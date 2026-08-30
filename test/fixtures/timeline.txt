@@ -1,0 +1,30 @@
+=== flutter_bug_report ===
+generated_at: 2026-08-26T07:19:11.214967Z
+description: it froze for a while and then died
+entry_count: 14
+truncated: false
+metadata:
+  app_version: 1.0.17+2185
+  platform: android
+  os_version: Android 14
+==================
+
+2026-08-26T07:19:11.214967Z INFO    polling for updates (0)
+2026-08-26T07:19:12.114967Z INFO    polling for updates (1)
+2026-08-26T07:19:13.014967Z INFO    polling for updates (2)
+2026-08-26T07:19:13.914967Z INFO    polling for updates (3)
+2026-08-26T07:19:14.814967Z INFO    polling for updates (4)
+2026-08-26T07:19:15.714967Z INFO    polling for updates (5)
+2026-08-26T07:19:47.214967Z INFO    user tapped pay
+2026-08-26T07:19:47.414967Z WARNING no response in 200ms
+2026-08-26T07:19:47.614967Z ERROR   payment call failed, attempt 1
+  TimeoutException after 0:00:30.000000
+2026-08-26T07:19:47.654967Z ERROR   payment call failed, attempt 2
+  TimeoutException after 0:00:30.000000
+2026-08-26T07:19:47.694967Z ERROR   payment call failed, attempt 3
+  TimeoutException after 0:00:30.000000
+2026-08-26T07:19:47.734967Z ERROR   payment call failed, attempt 4
+  TimeoutException after 0:00:30.000000
+2026-08-26T07:19:47.774967Z ERROR   payment call failed, attempt 5
+  TimeoutException after 0:00:30.000000
+2026-08-26T07:19:48.214967Z ERROR   giving up

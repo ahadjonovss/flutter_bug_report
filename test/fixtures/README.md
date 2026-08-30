@@ -31,6 +31,10 @@ truncated: true, and entry_count below what went in. The beginning of the sessio
 
 A screenshot was attached. The zip carries screenshot.png and its report names it; the text and json forms name nothing, because nothing can be in them. Bundles from 0.3.0 and earlier claim it in all three — a viewer still has to handle the claim without the file.
 
+### `timeline.txt`, `timeline.json`, `timeline.zip`
+
+A session with a real shape: a quiet stretch, a gap where nothing was logged, then everything going wrong at once. Every other fixture is stamped to the same instant so a regenerated file differs only where the builder changed — which makes them useless for anything that draws time. This one is for that.
+
 ### `empty.txt`, `empty.json`, `empty.zip`
 
 A report filed before anything was logged. Still a bundle.

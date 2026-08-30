@@ -1,0 +1,90 @@
+{
+  "report": {
+    "generated_at": "2026-08-26T07:19:11.214967Z",
+    "description": "it froze for a while and then died",
+    "entry_count": 14,
+    "truncated": false,
+    "metadata": {
+      "app_version": "1.0.17+2185",
+      "platform": "android",
+      "os_version": "Android 14"
+    }
+  },
+  "entries": [
+    {
+      "time": "2026-08-26T07:19:11.214967Z",
+      "level": "info",
+      "message": "polling for updates (0)"
+    },
+    {
+      "time": "2026-08-26T07:19:12.114967Z",
+      "level": "info",
+      "message": "polling for updates (1)"
+    },
+    {
+      "time": "2026-08-26T07:19:13.014967Z",
+      "level": "info",
+      "message": "polling for updates (2)"
+    },
+    {
+      "time": "2026-08-26T07:19:13.914967Z",
+      "level": "info",
+      "message": "polling for updates (3)"
+    },
+    {
+      "time": "2026-08-26T07:19:14.814967Z",
+      "level": "info",
+      "message": "polling for updates (4)"
+    },
+    {
+      "time": "2026-08-26T07:19:15.714967Z",
+      "level": "info",
+      "message": "polling for updates (5)"
+    },
+    {
+      "time": "2026-08-26T07:19:47.214967Z",
+      "level": "info",
+      "message": "user tapped pay"
+    },
+    {
+      "time": "2026-08-26T07:19:47.414967Z",
+      "level": "warning",
+      "message": "no response in 200ms"
+    },
+    {
+      "time": "2026-08-26T07:19:47.614967Z",
+      "level": "error",
+      "message": "payment call failed, attempt 1",
+      "error": "TimeoutException after 0:00:30.000000"
+    },
+    {
+      "time": "2026-08-26T07:19:47.654967Z",
+      "level": "error",
+      "message": "payment call failed, attempt 2",
+      "error": "TimeoutException after 0:00:30.000000"
+    },
+    {
+      "time": "2026-08-26T07:19:47.694967Z",
+      "level": "error",
+      "message": "payment call failed, attempt 3",
+      "error": "TimeoutException after 0:00:30.000000"
+    },
+    {
+      "time": "2026-08-26T07:19:47.734967Z",
+      "level": "error",
+      "message": "payment call failed, attempt 4",
+      "error": "TimeoutException after 0:00:30.000000"
+    },
+    {
+      "time": "2026-08-26T07:19:47.774967Z",
+      "level": "error",
+      "message": "payment call failed, attempt 5",
+      "error": "TimeoutException after 0:00:30.000000"
+    },
+    {
+      "time": "2026-08-26T07:19:48.214967Z",
+      "level": "error",
+      "message": "giving up"
+    }
+  ]
+}
