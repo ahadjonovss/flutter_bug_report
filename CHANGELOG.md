@@ -1,3 +1,14 @@
+## 0.3.3
+
+Documentation only.
+
+- The viewer is named at the top of the README now, not four screens down. A
+  bundle arriving in a ticket is somebody else's problem to read, and the
+  person who needs the viewer is often not the person who added the package.
+- `What you get` opens with the bundle as it actually reads — a screenshot of
+  the viewer with the sample session in it, the gap and the burst visible —
+  before the raw text of the same file.
+
 ## 0.3.2
 
 Documentation only — no library change, nothing to migrate.

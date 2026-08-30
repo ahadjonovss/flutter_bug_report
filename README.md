@@ -16,6 +16,11 @@
   <a href="https://github.com/ahadjonovss/flutter_bug_report/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="license"></a>
 </p>
 
+<p align="center">
+  <b><a href="https://ahadjonovss.github.io/flutter_bug_report_viewer/">Open a bundle in the viewer&nbsp;&rarr;</a></b><br>
+  <sub>Reads <code>.txt</code>, <code>.json</code> and <code>.zip</code> in the browser. No upload, no server, no signup.</sub>
+</p>
+
 ---
 
 Every bug report that arrives as *"it didn't work"* costs somebody an afternoon.
@@ -61,7 +66,16 @@ app, the same way there's one console.
 
 ## What you get
 
-And this is what arrives. Note what happened to the bearer token and the card
+<p align="center">
+  <a href="https://ahadjonovss.github.io/flutter_bug_report_viewer/"><img src="https://raw.githubusercontent.com/ahadjonovss/flutter_bug_report/main/doc/viewer.png" width="880" alt="The viewer: a strip across the top showing the shape of the session, the log below it, the report beside it"></a>
+</p>
+
+<p align="center">
+  <i>The same bundle, <a href="https://ahadjonovss.github.io/flutter_bug_report_viewer/">opened in the viewer</a> — the quiet stretch, the
+  31.5s gap where nothing was logged, then the burst. Nothing is uploaded to read it.</i>
+</p>
+
+And this is the file itself. Note what happened to the bearer token and the card
 number on the way:
 
 ```text
