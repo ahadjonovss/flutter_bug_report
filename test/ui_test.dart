@@ -127,6 +127,63 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    /// Opens the sheet the way an app does — through `show`, inside a modal
+    /// route. The tests above pump it into a Scaffold body, which hands it a
+    /// tight full-screen height and so cannot see how it lays itself out when
+    /// the height is its own to choose.
+    Future<void> openSheet(WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => BugReportSheet.show(
+                  context,
+                  onSubmit: (_, __) async => true,
+                  closeDelay: null,
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('sits on the bottom edge, only as tall as its content',
+        (tester) async {
+      tester.view.physicalSize = const Size(400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await openSheet(tester);
+
+      final screen = tester.getSize(find.byType(MaterialApp));
+      final sheet = tester.getRect(find.byType(BugReportSheet));
+
+      // `isScrollControlled` offers the sheet the whole screen. Taking it
+      // leaves a bottom sheet floating in the middle of one.
+      expect(sheet.height, lessThan(screen.height * 0.75));
+      expect(sheet.bottom, moreOrLessEquals(screen.height, epsilon: 1));
+    });
+
+    testWidgets('with the keyboard up it scrolls rather than overflows',
+        (tester) async {
+      // A short phone with the keyboard up has less room than the sheet wants.
+      tester.view.physicalSize = const Size(400, 600);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewInsets = const FakeViewPadding(bottom: 340);
+      addTearDown(tester.view.reset);
+
+      await openSheet(tester);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text(const BugReportStrings().title), findsOneWidget);
+    });
+
     testWidgets('speaks whatever words it is given', (tester) async {
       await pumpSheet(
         tester,

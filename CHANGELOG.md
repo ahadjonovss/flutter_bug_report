@@ -1,3 +1,17 @@
+## 0.2.2
+
+- **The sheet opened as a full-screen panel with its content floating in the
+  middle.** `isScrollControlled` offers a bottom sheet the whole screen, and the
+  `Center` wrapping the content took all of it. It now shrink-wraps its height
+  and stays on the bottom edge, where a bottom sheet belongs.
+- The content scrolls once there is not room for it — a short phone with the
+  keyboard up had less height than the sheet wanted, and an overflow stripe
+  across the form is a poor place to report a bug from.
+- Layout is now tested through `BugReportSheet.show`. The existing tests pumped
+  the sheet into a `Scaffold` body, which hands it a tight full-screen height —
+  so none of them could see how it lays itself out when the height is its own to
+  choose, which is exactly the case that was broken.
+
 ## 0.2.1
 
 Setup was not as easy as 0.2.0 claimed. Found by writing the naive setup out

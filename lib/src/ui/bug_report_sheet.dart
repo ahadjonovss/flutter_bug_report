@@ -207,10 +207,19 @@ class _BugReportSheetState extends State<BugReportSheet> {
     final radius = widget.theme.radius ?? 20;
     final strings = widget.strings;
 
-    return Center(
+    // Centred horizontally, but only as tall as what is in it. A plain Center
+    // takes every pixel it is offered, and `isScrollControlled` offers the
+    // whole screen — which is how a bottom sheet ends up floating in the
+    // middle of one. `heightFactor` is what keeps it at the bottom.
+    return Align(
+      alignment: Alignment.bottomCenter,
+      heightFactor: 1,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: widget.theme.maxWidth ?? 520),
-        child: Padding(
+        // Scrolls only once it has to: a short phone with the keyboard up has
+        // less room than this sheet needs, and an overflow there is a stripe
+        // across the report someone is trying to file.
+        child: SingleChildScrollView(
           padding: widget.theme.padding ?? const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
