@@ -16,7 +16,9 @@
 /// await BugReport.init();
 ///
 /// BugReportWrapper(
-///   onSubmit: (bundle, description) => myBackend.upload(bundle),
+///   config: BugReportConfig(
+///     onSubmit: (bundle, description) => myBackend.upload(bundle),
+///   ),
 ///   child: MaterialApp(...),
 /// );
 /// ```
@@ -35,10 +37,16 @@ export 'src/model/log_level.dart' show LogLevel;
 export 'src/redaction/redactor.dart' show Redactor;
 export 'src/store/file_log_store.dart' show FileLogStore;
 export 'src/store/log_store.dart' show LogStore, MemoryLogStore;
-export 'src/ui/bug_report_sheet.dart'
-    show BugReportMetadata, BugReportSender, BugReportSheet;
+export 'src/ui/bug_report_config.dart'
+    show
+        BugReportButtonBuilder,
+        BugReportConfig,
+        BugReportFieldBuilder,
+        BugReportMetadata,
+        BugReportSender;
+export 'src/ui/bug_report_sheet.dart' show BugReportSheet;
 export 'src/ui/bug_report_strings.dart' show BugReportStrings;
 export 'src/ui/bug_report_theme.dart' show BugReportTheme;
 export 'src/ui/bug_report_wrapper.dart'
-    show BugReportTrigger, BugReportWrapper;
+    show BugReportTrigger, BugReportTriggerCallback, BugReportWrapper;
 export 'src/ui/screenshot.dart' show Screenshot;

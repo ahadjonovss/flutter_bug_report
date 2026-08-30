@@ -1,78 +1,28 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_bug_report/src/bundle/bundle.dart';
-import 'package:flutter_bug_report/src/bundle/bundle_format.dart';
 import 'package:flutter_bug_report/src/bug_report_base.dart';
+import 'package:flutter_bug_report/src/ui/bug_report_config.dart';
 import 'package:flutter_bug_report/src/ui/bug_report_strings.dart';
-import 'package:flutter_bug_report/src/ui/bug_report_theme.dart';
-
-/// Files the report. Returns whether it got there.
-///
-/// The package builds the bundle and hands it over; where it goes is yours.
-/// Return `false` and the sheet says so and keeps what the person wrote, so a
-/// second attempt does not start from an empty field.
-typedef BugReportSender = Future<bool> Function(
-  Bundle bundle,
-  String description,
-);
-
-/// Facts about the build and the phone, gathered when a report is filed.
-///
-/// A callback rather than a map so it is read at the moment of reporting, and
-/// asynchronous because `package_info` and `device_info` both are. Deliberately
-/// yours to fill: this package does not read the device, so it never has to
-/// decide on your behalf what counts as identifying.
-typedef BugReportMetadata = Future<Map<String, String>> Function();
 
 /// The sheet a person writes their complaint into.
 ///
-/// Everything visible is overridable — [strings] for the words, [theme] for the
-/// look — and both default to something usable, so the shortest version of this
-/// is one line:
+/// Everything visible is overridable — the words, the colours, and the field
+/// and button themselves — through [BugReportConfig]. The shortest version is
+/// one line:
 ///
 /// ```dart
-/// BugReportSheet.show(context, onSubmit: myUpload);
+/// BugReportSheet.show(context, config: myReportConfig);
 /// ```
 class BugReportSheet extends StatefulWidget {
   const BugReportSheet({
-    required this.onSubmit,
-    this.metadata,
-    this.strings = const BugReportStrings(),
-    this.theme = const BugReportTheme(),
-    this.minLength = 5,
-    this.maxLength = 500,
-    this.format = BundleFormat.zip,
-    this.limit = 300,
-    this.closeDelay = const Duration(milliseconds: 1200),
+    required this.config,
     this.screenshot,
     super.key,
   });
 
-  final BugReportSender onSubmit;
-  final BugReportMetadata? metadata;
-  final BugReportStrings strings;
-  final BugReportTheme theme;
-
-  /// The shortest description worth filing. Below this the report says nothing
-  /// the log does not already, and the person is better off writing another
-  /// line — which is what the sheet asks them to do.
-  final int minLength;
-
-  final int maxLength;
-
-  /// What the attachment is. Zip by default: every tracker takes one, and it
-  /// survives a size limit a plain log would not.
-  final BundleFormat format;
-
-  /// How many entries to carry.
-  final int limit;
-
-  /// How long the thanks stays up before the sheet closes itself.
-  ///
-  /// Null keeps it open, for a flow that wants to close it on its own terms —
-  /// or for a test, where a pending timer outliving the widget is an error.
-  final Duration? closeDelay;
+  final BugReportConfig config;
 
   /// A picture of the screen the report was filed from, if one was taken.
   ///
@@ -82,20 +32,16 @@ class BugReportSheet extends StatefulWidget {
   final Uint8List? screenshot;
 
   /// Opens the sheet, and closes it once the report is filed.
+  ///
+  /// The future completes when the sheet *closes* — filed, cancelled or swiped
+  /// away — not when it opens. Await it to know the report is over with; do
+  /// not await it expecting the sheet to be on screen.
   static Future<void> show(
     BuildContext context, {
-    required BugReportSender onSubmit,
-    BugReportMetadata? metadata,
-    BugReportStrings strings = const BugReportStrings(),
-    BugReportTheme theme = const BugReportTheme(),
-    int minLength = 5,
-    int maxLength = 500,
-    BundleFormat format = BundleFormat.zip,
-    int limit = 300,
-    Duration? closeDelay = const Duration(milliseconds: 1200),
+    required BugReportConfig config,
     Uint8List? screenshot,
   }) {
-    final radius = theme.radius ?? 20;
+    final radius = config.theme.radius ?? 20;
 
     return showModalBottomSheet<void>(
       context: context,
@@ -107,23 +53,12 @@ class BugReportSheet extends StatefulWidget {
           bottom: MediaQuery.of(context).viewInsets.bottom,
         ),
         child: Material(
-          color: theme.background ?? Theme.of(context).canvasColor,
+          color: config.theme.background ?? Theme.of(context).canvasColor,
           borderRadius: BorderRadius.vertical(top: Radius.circular(radius)),
           clipBehavior: Clip.antiAlias,
           child: SafeArea(
             top: false,
-            child: BugReportSheet(
-              onSubmit: onSubmit,
-              metadata: metadata,
-              strings: strings,
-              theme: theme,
-              minLength: minLength,
-              maxLength: maxLength,
-              format: format,
-              limit: limit,
-              closeDelay: closeDelay,
-              screenshot: screenshot,
-            ),
+            child: BugReportSheet(config: config, screenshot: screenshot),
           ),
         ),
       ),
@@ -142,12 +77,23 @@ class _BugReportSheetState extends State<BugReportSheet> {
   _Stage _stage = _Stage.writing;
   bool _tooShort = false;
 
+  /// The self-close, held so it can be called off.
+  ///
+  /// A `Future.delayed` cannot be cancelled, and one left running past the end
+  /// of a widget test is a failure with nothing wrong behind it: the test has
+  /// to pump the delay away purely to satisfy the timer. A [Timer] cancelled
+  /// in [dispose] leaves nothing pending.
+  Timer? _closer;
+
   /// Attached unless they say otherwise — but they can see it first, and one
   /// tap takes it out.
   late bool _attachShot = widget.screenshot != null;
 
+  BugReportConfig get _config => widget.config;
+
   @override
   void dispose() {
+    _closer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -156,7 +102,7 @@ class _BugReportSheetState extends State<BugReportSheet> {
     if (_stage == _Stage.sending) return;
 
     final text = _controller.text.trim();
-    if (text.length < widget.minLength) {
+    if (text.length < _config.minLength) {
       setState(() => _tooShort = true);
       return;
     }
@@ -167,25 +113,26 @@ class _BugReportSheetState extends State<BugReportSheet> {
     });
 
     try {
-      final metadata = await widget.metadata?.call() ?? const <String, String>{};
+      final metadata = await _config.metadata?.call() ?? const <String, String>{};
       final bundle = await BugReport.build(
         description: text,
         metadata: metadata,
-        format: widget.format,
-        limit: widget.limit,
+        format: _config.format,
+        limit: _config.limit,
         screenshot: _attachShot ? widget.screenshot : null,
       );
 
-      final filed = await widget.onSubmit(bundle, text);
+      final filed = await _config.onSubmit(bundle, text);
       if (!mounted) return;
 
       setState(() => _stage = filed ? _Stage.sent : _Stage.failed);
 
-      final delay = widget.closeDelay;
+      final delay = _config.closeDelay;
       if (filed && delay != null) {
         // Long enough to read the thanks, short enough not to be in the way.
-        await Future<void>.delayed(delay);
-        if (mounted) Navigator.of(context).maybePop();
+        _closer = Timer(delay, () {
+          if (mounted) Navigator.of(context).maybePop();
+        });
       }
     } on Object catch (error, stackTrace) {
       // Reporting a problem must not become one.
@@ -202,10 +149,10 @@ class _BugReportSheetState extends State<BugReportSheet> {
   @override
   Widget build(BuildContext context) {
     final palette = Theme.of(context);
-    final accent = widget.theme.accent ?? palette.colorScheme.primary;
-    final onAccent = widget.theme.onAccent ?? palette.colorScheme.onPrimary;
-    final radius = widget.theme.radius ?? 20;
-    final strings = widget.strings;
+    final accent = _config.theme.accent ?? palette.colorScheme.primary;
+    final onAccent = _config.theme.onAccent ?? palette.colorScheme.onPrimary;
+    final radius = _config.theme.radius ?? 20;
+    final strings = _config.strings;
 
     // Centred horizontally, but only as tall as what is in it. A plain Center
     // takes every pixel it is offered, and `isScrollControlled` offers the
@@ -215,12 +162,12 @@ class _BugReportSheetState extends State<BugReportSheet> {
       alignment: Alignment.bottomCenter,
       heightFactor: 1,
       child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: widget.theme.maxWidth ?? 520),
+        constraints: BoxConstraints(maxWidth: _config.theme.maxWidth ?? 520),
         // Scrolls only once it has to: a short phone with the keyboard up has
         // less room than this sheet needs, and an overflow there is a stripe
         // across the report someone is trying to file.
         child: SingleChildScrollView(
-          padding: widget.theme.padding ?? const EdgeInsets.all(20),
+          padding: _config.theme.padding ?? const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -229,14 +176,14 @@ class _BugReportSheetState extends State<BugReportSheet> {
               const SizedBox(height: 18),
               Text(
                 strings.title,
-                style: widget.theme.titleStyle ??
+                style: _config.theme.titleStyle ??
                     palette.textTheme.titleLarge
                         ?.copyWith(fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 8),
               Text(
                 strings.message,
-                style: widget.theme.messageStyle ??
+                style: _config.theme.messageStyle ??
                     palette.textTheme.bodyMedium?.copyWith(
                       color: palette.textTheme.bodySmall?.color,
                       height: 1.45,
@@ -258,6 +205,10 @@ class _BugReportSheetState extends State<BugReportSheet> {
               ],
               const SizedBox(height: 18),
               _button(accent, onAccent, radius, strings),
+              if (_config.showCancel) ...[
+                const SizedBox(height: 4),
+                _cancel(palette, strings),
+              ],
               if (_stage == _Stage.sent || _stage == _Stage.failed) ...[
                 const SizedBox(height: 12),
                 _outcome(palette, strings),
@@ -286,6 +237,11 @@ class _BugReportSheetState extends State<BugReportSheet> {
     double radius,
     BugReportStrings strings,
   ) {
+    final enabled = _stage != _Stage.sending && _stage != _Stage.sent;
+
+    final custom = _config.fieldBuilder;
+    if (custom != null) return custom(context, _controller, enabled);
+
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(radius * 0.6),
       borderSide: BorderSide(color: palette.dividerColor),
@@ -293,11 +249,11 @@ class _BugReportSheetState extends State<BugReportSheet> {
 
     return TextField(
       controller: _controller,
-      enabled: _stage != _Stage.sending && _stage != _Stage.sent,
+      enabled: enabled,
       autofocus: true,
       maxLines: 4,
       minLines: 3,
-      maxLength: widget.maxLength,
+      maxLength: _config.maxLength,
       textCapitalization: TextCapitalization.sentences,
       onChanged: (_) {
         if (_tooShort) setState(() => _tooShort = false);
@@ -321,9 +277,18 @@ class _BugReportSheetState extends State<BugReportSheet> {
     BugReportStrings strings,
   ) {
     final busy = _stage == _Stage.sending;
+    final onPressed = busy || _stage == _Stage.sent ? null : _submit;
+    final label = switch (_stage) {
+      _Stage.sending => strings.sending,
+      _Stage.sent => strings.sent,
+      _ => strings.send,
+    };
+
+    final custom = _config.buttonBuilder;
+    if (custom != null) return custom(context, onPressed, busy, label);
 
     return FilledButton(
-      onPressed: busy || _stage == _Stage.sent ? null : _submit,
+      onPressed: onPressed,
       style: FilledButton.styleFrom(
         backgroundColor: accent,
         foregroundColor: onAccent,
@@ -332,18 +297,43 @@ class _BugReportSheetState extends State<BugReportSheet> {
           borderRadius: BorderRadius.circular(radius * 0.6),
         ),
       ),
+      // The spinner says something is happening; the word says what. A
+      // progress indicator on its own is the same picture for a send, a
+      // build and a hang.
       child: busy
-          ? SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.2,
-                valueColor: AlwaysStoppedAnimation<Color>(onAccent),
-              ),
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.2,
+                    valueColor: AlwaysStoppedAnimation<Color>(onAccent),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
+              ],
             )
-          : Text(_stage == _Stage.sent ? strings.sent : strings.send),
+          : Text(label),
     );
   }
+
+  /// The way out that is not a swipe.
+  ///
+  /// Hidden once the report is filed, where the sheet closes itself and a
+  /// second dismissal is a button that does nothing.
+  Widget _cancel(ThemeData palette, BugReportStrings strings) => TextButton(
+    onPressed: _stage == _Stage.sent
+        ? null
+        : () => Navigator.of(context).maybePop(),
+    child: Text(
+      strings.cancel,
+      style: palette.textTheme.bodyMedium
+          ?.copyWith(color: palette.textTheme.bodySmall?.color),
+    ),
+  );
 
   /// The picture, and the switch that decides whether it goes.
   ///

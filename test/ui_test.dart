@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bug_report/flutter_bug_report.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -5,33 +7,12 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   tearDown(() async => BugReport.dispose());
 
-  Future<void> pumpSheet(
-    WidgetTester tester, {
-    required BugReportSender onSubmit,
-    BugReportMetadata? metadata,
-    BugReportStrings strings = const BugReportStrings(),
-  }) async {
+  Future<void> pumpSheet(WidgetTester tester, BugReportConfig config) async {
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: BugReportSheet(
-            onSubmit: onSubmit,
-            metadata: metadata,
-            strings: strings,
-            // No self-closing timer: a timer outliving the widget tree is an
-            // error in a test, and closing is not what these assert on.
-            closeDelay: null,
-          ),
-        ),
-      ),
+      MaterialApp(home: Scaffold(body: BugReportSheet(config: config))),
     );
   }
 
-  /// The sheet builds a real zip, which takes a turn or two to finish.
-  ///
-  /// pumpAndSettle is no good here: it waits for animations to stop, and the
-  /// spinner it would wait on never does. Plain pumps advance the work and
-  /// leave when it is done.
   /// Taps send and waits for the whole chain — metadata, the zip, the send —
   /// to actually finish.
   ///
@@ -50,10 +31,14 @@ void main() {
   group('BugReportSheet', () {
     testWidgets('will not send a line too short to act on', (tester) async {
       var called = false;
-      await pumpSheet(tester, onSubmit: (_, __) async {
-        called = true;
-        return true;
-      });
+      await pumpSheet(
+        tester,
+        BugReportConfig(onSubmit: (_, __) async {
+          called = true;
+
+          return true;
+        }),
+      );
 
       await tester.tap(find.byType(FilledButton));
       await tester.pump();
@@ -73,11 +58,15 @@ void main() {
 
       Bundle? filed;
       String? said;
-      await pumpSheet(tester, onSubmit: (bundle, description) async {
-        filed = bundle;
-        said = description;
-        return true;
-      });
+      await pumpSheet(
+        tester,
+        BugReportConfig(onSubmit: (bundle, description) async {
+          filed = bundle;
+          said = description;
+
+          return true;
+        }),
+      );
 
       await tester.enterText(find.byType(TextField), '  it froze on pay  ');
       await tapSend(tester);
@@ -92,11 +81,14 @@ void main() {
       Bundle? filed;
       await pumpSheet(
         tester,
-        metadata: () async => {'app_version': '1.2.3', 'platform': 'android'},
-        onSubmit: (bundle, _) async {
-          filed = bundle;
-          return true;
-        },
+        BugReportConfig(
+          metadata: () async => {'app_version': '1.2.3', 'platform': 'android'},
+          onSubmit: (bundle, _) async {
+            filed = bundle;
+
+            return true;
+          },
+        ),
       );
 
       await tester.enterText(find.byType(TextField), 'the list was empty');
@@ -107,7 +99,7 @@ void main() {
 
     testWidgets('a send that fails says so and keeps what was written',
         (tester) async {
-      await pumpSheet(tester, onSubmit: (_, __) async => false);
+      await pumpSheet(tester, BugReportConfig(onSubmit: (_, __) async => false));
 
       await tester.enterText(find.byType(TextField), 'the list was empty');
       await tapSend(tester);
@@ -118,13 +110,142 @@ void main() {
 
     testWidgets('a sender that throws does not take the sheet down',
         (tester) async {
-      await pumpSheet(tester, onSubmit: (_, __) async => throw StateError('no'));
+      await pumpSheet(
+        tester,
+        BugReportConfig(onSubmit: (_, __) async => throw StateError('no')),
+      );
 
       await tester.enterText(find.byType(TextField), 'the list was empty');
       await tapSend(tester);
 
       expect(find.text(const BugReportStrings().failed), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    /// The default `closeDelay` used to be a `Future.delayed` nothing could
+    /// call off, so a test that sent successfully failed on a pending timer
+    /// unless it pumped the delay away. This sends with the default and pumps
+    /// nothing: the timer has to be gone on its own.
+    testWidgets('a successful send leaves no timer behind', (tester) async {
+      await pumpSheet(tester, BugReportConfig(onSubmit: (_, __) async => true));
+
+      await tester.enterText(find.byType(TextField), 'the list was empty');
+      await tapSend(tester);
+
+      expect(find.text(const BugReportStrings().sent), findsWidgets);
+    });
+
+    testWidgets('while it is in flight it says so, not just a spinner',
+        (tester) async {
+      final held = Completer<bool>();
+      await pumpSheet(
+        tester,
+        BugReportConfig(onSubmit: (_, __) => held.future),
+      );
+
+      await tester.enterText(find.byType(TextField), 'the list was empty');
+      await tester.runAsync(() async {
+        await tester.tap(find.byType(FilledButton));
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+      });
+      await tester.pump();
+
+      expect(find.text(const BugReportStrings().sending), findsOneWidget);
+
+      held.complete(true);
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump();
+    });
+
+    testWidgets('cancel closes it, so a swipe is not the only way out',
+        (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => BugReportSheet.show(
+                  context,
+                  config: BugReportConfig(onSubmit: (_, __) async => true),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      expect(find.byType(BugReportSheet), findsOneWidget);
+
+      await tester.tap(find.text(const BugReportStrings().cancel));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BugReportSheet), findsNothing);
+    });
+
+    testWidgets('showCancel false leaves it off', (tester) async {
+      await pumpSheet(
+        tester,
+        BugReportConfig(
+          showCancel: false,
+          onSubmit: (_, __) async => true,
+        ),
+      );
+
+      expect(find.text(const BugReportStrings().cancel), findsNothing);
+    });
+
+    testWidgets('draws the field and the button you give it', (tester) async {
+      await pumpSheet(
+        tester,
+        BugReportConfig(
+          onSubmit: (_, __) async => true,
+          fieldBuilder: (context, controller, enabled) => TextField(
+            controller: controller,
+            enabled: enabled,
+            key: const Key('our-field'),
+          ),
+          buttonBuilder: (context, onPressed, busy, label) => ElevatedButton(
+            onPressed: onPressed,
+            child: Text(label),
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('our-field')), findsOneWidget);
+      expect(find.byType(ElevatedButton), findsOneWidget);
+      expect(find.byType(FilledButton), findsNothing, reason: 'ours replaces it');
+    });
+
+    testWidgets('a custom button still files the report', (tester) async {
+      var filed = false;
+      await pumpSheet(
+        tester,
+        BugReportConfig(
+          onSubmit: (_, __) async {
+            filed = true;
+
+            return true;
+          },
+          buttonBuilder: (context, onPressed, busy, label) => ElevatedButton(
+            onPressed: onPressed,
+            child: Text(label),
+          ),
+        ),
+      );
+
+      await tester.enterText(find.byType(TextField), 'the list was empty');
+      await tester.runAsync(() async {
+        await tester.tap(find.byType(ElevatedButton));
+        await Future<void>.delayed(const Duration(milliseconds: 400));
+      });
+      await tester.pump();
+
+      expect(filed, isTrue);
     });
 
     /// Opens the sheet the way an app does — through `show`, inside a modal
@@ -139,8 +260,7 @@ void main() {
               builder: (context) => TextButton(
                 onPressed: () => BugReportSheet.show(
                   context,
-                  onSubmit: (_, __) async => true,
-                  closeDelay: null,
+                  config: BugReportConfig(onSubmit: (_, __) async => true),
                 ),
                 child: const Text('open'),
               ),
@@ -187,10 +307,12 @@ void main() {
     testWidgets('speaks whatever words it is given', (tester) async {
       await pumpSheet(
         tester,
-        onSubmit: (_, __) async => true,
-        strings: const BugReportStrings(
-          title: 'Muammo haqida xabar bering',
-          send: 'Yuborish',
+        BugReportConfig(
+          onSubmit: (_, __) async => true,
+          strings: const BugReportStrings(
+            title: 'Muammo haqida xabar bering',
+            send: 'Yuborish',
+          ),
         ),
       );
 
@@ -200,15 +322,22 @@ void main() {
   });
 
   group('BugReportWrapper', () {
+    Widget app({
+      BugReportTrigger trigger = BugReportTrigger.longPress,
+      bool enabled = true,
+      BugReportTriggerCallback? onTrigger,
+    }) => MaterialApp(
+      home: BugReportWrapper(
+        trigger: trigger,
+        enabled: enabled,
+        onTrigger: onTrigger,
+        config: BugReportConfig(onSubmit: (_, __) async => true),
+        child: const Scaffold(body: Center(child: Text('app'))),
+      ),
+    );
+
     testWidgets('a long press opens the sheet', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: BugReportWrapper(
-            onSubmit: (_, __) async => true,
-            child: const Scaffold(body: Center(child: Text('app'))),
-          ),
-        ),
-      );
+      await tester.pumpWidget(app());
 
       await tester.longPress(find.text('app'));
       await tester.pumpAndSettle();
@@ -217,15 +346,7 @@ void main() {
     });
 
     testWidgets('disabled, it installs nothing at all', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: BugReportWrapper(
-            enabled: false,
-            onSubmit: (_, __) async => true,
-            child: const Scaffold(body: Center(child: Text('app'))),
-          ),
-        ),
-      );
+      await tester.pumpWidget(app(enabled: false));
 
       expect(find.byType(GestureDetector), findsNothing);
 
@@ -236,20 +357,35 @@ void main() {
     });
 
     testWidgets('the none trigger leaves the gesture off', (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: BugReportWrapper(
-            trigger: BugReportTrigger.none,
-            onSubmit: (_, __) async => true,
-            child: const Scaffold(body: Center(child: Text('app'))),
-          ),
-        ),
-      );
+      await tester.pumpWidget(app(trigger: BugReportTrigger.none));
 
       await tester.longPress(find.text('app'));
       await tester.pumpAndSettle();
 
       expect(find.text(const BugReportStrings().title), findsNothing);
+    });
+
+    /// What an internal build wants: the same gesture reaches a menu, and the
+    /// report is one of the things on it.
+    testWidgets('onTrigger takes the gesture, and can still open the report',
+        (tester) async {
+      Future<void> Function()? offered;
+      await tester.pumpWidget(
+        app(onTrigger: (context, openReport) async => offered = openReport),
+      );
+
+      await tester.longPress(find.text('app'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BugReportSheet), findsNothing, reason: 'intercepted');
+      expect(offered, isNotNull);
+
+      // Not awaited: `show` completes when the sheet *closes*, not when it
+      // opens, so awaiting it here waits for a sheet nothing is going to shut.
+      unawaited(offered!());
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BugReportSheet), findsOneWidget);
     });
   });
 }

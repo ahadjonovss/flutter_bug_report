@@ -19,7 +19,7 @@ void main() {
     // BugReport.init, no navigatorKey, no ensureInitialized.
     await tester.pumpWidget(
       BugReportWrapper(
-        onSubmit: (bundle, description) async => true,
+        config: BugReportConfig(onSubmit: (bundle, description) async => true),
         child: const MaterialApp(home: Scaffold(body: Text('home'))),
       ),
     );
@@ -38,7 +38,9 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         builder: (context, child) => BugReportWrapper(
-          onSubmit: (bundle, description) async => true,
+          config: BugReportConfig(
+            onSubmit: (bundle, description) async => true,
+          ),
           child: child!,
         ),
         home: const Scaffold(body: Text('home')),

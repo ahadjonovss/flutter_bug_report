@@ -41,6 +41,10 @@ await myBackend.upload(bundle.bytes, bundle.fileName, bundle.mimeType);
 No instance to hold, nothing to inject, no service locator. There's one log per
 app, the same way there's one console.
 
+> Already have a `BugReport` of your own — an exception class, most often? Import
+> around it: `import 'package:flutter_bug_report/flutter_bug_report.dart' hide BugReport;`
+> and reach this one through a prefixed import instead.
+
 ## What it looks like
 
 <p align="center">
@@ -159,15 +163,19 @@ of it. Whatever you pass in `metadata` wins over what was collected.
 
 ```yaml
 dependencies:
-  flutter_bug_report: ^0.2.0
+  flutter_bug_report: ^0.3.0
 ```
 
 ### With the built-in sheet
 
 ```dart
+final reportConfig = BugReportConfig(
+  onSubmit: (bundle, description) => myBackend.upload(bundle),
+);
+
 runApp(
   BugReportWrapper(
-    onSubmit: (bundle, description) => myBackend.upload(bundle),
+    config: reportConfig,
     child: MaterialApp(...),
   ),
 );
@@ -183,6 +191,33 @@ bool, so a `const` folds the whole thing out of a release build.
 
 `onSubmit` is the one thing you must write, and it is the point: the package
 builds the file and never decides where it goes.
+
+**Everything about a report lives in `BugReportConfig`** — what it sends, what
+it says, how it looks — and both the wrapper and `BugReportSheet.show` take the
+same object. Hold one and pass it to both, and the report opened from a settings
+row cannot drift away from the one opened by the gesture.
+
+```dart
+BugReportSheet.show(context, config: reportConfig);   // the same report
+```
+
+### When the gesture should reach more than the report
+
+An internal build usually wants the long press to open a menu, with the report
+one item on it. `onTrigger` takes the gesture and is handed the report:
+
+```dart
+BugReportWrapper(
+  config: reportConfig,
+  onTrigger: kReleaseMode
+      ? null                                  // straight to the report
+      : (context, openReport) => showDebugMenu(context, onReport: openReport),
+  child: MaterialApp(...),
+)
+```
+
+The screenshot, if you asked for one, is captured before your menu opens — so it
+is a picture of the screen being reported, not of the menu.
 
 ### Or without any UI
 
@@ -219,15 +254,39 @@ written before anything has had a chance to be configured.
 ### Making it yours
 
 ```dart
-BugReportWrapper(
+BugReportConfig(
+  onSubmit: myUpload,
   strings: BugReportStrings(title: l10n.reportTitle, send: l10n.send),
   theme: const BugReportTheme(accent: Color(0xFF1B4FD8), radius: 20),
-  ...
 )
 ```
 
 Every word is a parameter and every colour falls back to your own `ThemeData`,
 so the sheet reads as part of the app rather than as a package bolted onto it.
+
+When a colour is not enough — you have a design system, and its button is not a
+`FilledButton` — draw the two controls yourself and leave the collecting,
+redacting and bundling where it is:
+
+```dart
+BugReportConfig(
+  onSubmit: myUpload,
+  fieldBuilder: (context, controller, enabled) =>
+      AppTextField(controller: controller, enabled: enabled),
+  buttonBuilder: (context, onPressed, busy, label) =>
+      MainButton(onPressed: onPressed, loading: busy, title: label),
+)
+```
+
+`onPressed` is null while the report is in flight or already filed, so a button
+that respects it cannot file the same report twice.
+
+And if you want none of the sheet, you already have the headless path — it is
+the original API. `BugReport.build()` returns the bundle; the UI is yours:
+
+```dart
+final bundle = await BugReport.build(description: whateverTheyTyped);
+```
 
 ## What it collects
 
@@ -344,13 +403,20 @@ ShakeDetector.autoStart(onPhoneShake: (_) async {
 ```dart
 final bundle = await BugReport.build(description: text);
 
-await Sentry.captureException(
-  BugReport(text),
-  withScope: (scope) => scope.addAttachment(
-    SentryAttachment.fromUint8List(bundle.bytes, bundle.fileName),
-  ),
+await Sentry.captureMessage(
+  text,
+  withScope: (scope) {
+    scope.addAttachment(
+      SentryAttachment.fromUint8List(bundle.bytes, bundle.fileName),
+    );
+    bundle.metadata.forEach(scope.setTag);   // app_version, platform, the rest
+  },
 );
 ```
+
+`bundle.metadata` is handed back to you rather than only written into the file,
+so the facts that belong beside the attachment — as tags on an event, as fields
+on a form — do not have to be read back out of a zip.
 </details>
 
 <details>
@@ -368,6 +434,59 @@ await dio.post(
     'document': MultipartFile.fromBytes(bundle.bytes, filename: bundle.fileName),
   }),
 );
+```
+</details>
+
+<details>
+<summary><b>Feed it the logger you already have</b></summary>
+<br>
+
+Most apps do not log through this package — they log through `talker`, `logger`
+or `package:logging`, and that is where the HTTP calls are. Without a bridge the
+bundle arrives without the most useful thing in it.
+
+`BugReport.log` is the seam. Map your levels onto `LogLevel` and forward:
+
+```dart
+// package:logging
+Logger.root.onRecord.listen((r) => BugReport.log(
+      switch (r.level.value) {
+        >= 1000 => LogLevel.error,
+        >= 900 => LogLevel.warning,
+        >= 800 => LogLevel.info,
+        _ => LogLevel.debug,
+      },
+      r.message,
+      error: r.error,
+      stackTrace: r.stackTrace,
+    ));
+
+// talker
+talker.stream.listen((e) => BugReport.log(
+      switch (e.logLevel) {
+        LogLevel.error || LogLevel.critical => LogLevel.error,
+        LogLevel.warning => LogLevel.warning,
+        _ => LogLevel.info,
+      },
+      e.generateTextMessage(),
+      error: e.error,
+      stackTrace: e.stackTrace,
+    ));
+```
+
+Redaction still runs on the way in, so a bridged logger cannot smuggle a token
+past it.
+
+**One caveat, and it is the only one.** A stream delivers asynchronously. Calling
+`BugReport.info(...)` directly and then `BugReport.build()` is ordered — the
+entry is queued synchronously and `build` waits for the queue. An entry arriving
+*through a stream* is not: it lands whenever the stream gets around to it, which
+may be after the bundle was built. If you file a report immediately after the
+line you want in it, give the stream a turn first:
+
+```dart
+await Future<void>.delayed(Duration.zero);
+final bundle = await BugReport.build(description: text);
 ```
 </details>
 
@@ -442,8 +561,11 @@ void main() async {
 - Nothing is sent anywhere. The package has no network code.
 - `MemoryLogStore` writes nothing to disk.
 - Redaction runs before storage, not before export.
-- `metadata` is a plain map you fill in — `flutter_bug_report` doesn't read the device,
-  so it can't decide on your behalf what counts as identifying.
+- Device facts are collected by default and are non-identifying by construction —
+  platform, OS version, locale, screen, build mode. No device id, no advertising
+  id, nothing that names a person. `BugReport.init(deviceFacts: false)` sends
+  none of it, and anything you pass in `metadata` wins over what was collected.
+  Anything more specific than that is yours to add, never ours to guess.
 - `BugReport.clear()` on sign-out, if the log could name the person who just left.
 
 ## License

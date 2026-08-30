@@ -1,3 +1,73 @@
+## 0.3.0
+
+Written against a real integration report. Most of what follows is somebody
+else's afternoon, handed back.
+
+**Breaking — one config object instead of a parameter list**
+
+`BugReportWrapper` and `BugReportSheet.show` each took the same eleven
+parameters, kept in step by hand. They now take one `BugReportConfig`, and the
+report opened from a settings row can no longer drift away from the one opened
+by the gesture.
+
+```dart
+// before
+BugReportWrapper(onSubmit: upload, strings: ..., theme: ..., child: app)
+
+// after
+final config = BugReportConfig(onSubmit: upload, strings: ..., theme: ...);
+BugReportWrapper(config: config, child: app)
+BugReportSheet.show(context, config: config);   // the same report
+```
+
+**Added**
+
+- `onTrigger` on the wrapper. The gesture no longer has to mean "open the
+  report": an internal build can put a debug menu in front of it and still be
+  handed the report, screenshot and all, rather than rebuilding the path.
+  `onTrigger: kReleaseMode ? null : (context, openReport) => ...`.
+- `fieldBuilder` and `buttonBuilder`. The field and the send button were a
+  `TextField` and a `FilledButton` and nothing could reach them, so a sheet in
+  an app with its own design system read as a package bolted on. Draw both
+  yourself and the collecting, redacting and bundling stay where they are.
+- A **Cancel** button, on by default (`showCancel: false` to drop it). A modal
+  whose only way out is a swipe is a modal some people are stuck in, and the
+  person stuck in it already had a problem to report.
+
+**Fixed**
+
+- **The sheet opened as a full-screen panel with its content floating in the
+  middle.** `isScrollControlled` offers a bottom sheet the whole screen, and the
+  `Center` wrapping the content took all of it. It shrink-wraps its height now
+  and stays on the bottom edge. It also scrolls once there is not room — a short
+  phone with the keyboard up had less height than the sheet wanted.
+- **A successful send no longer leaves a timer running.** The self-close was a
+  `Future.delayed` nothing could call off, so every widget test that sent
+  successfully failed on a pending timer unless it pumped the delay away. It is
+  a `Timer` now, cancelled in `dispose`.
+- `BugReportStrings.sending` and `.cancel` were never rendered anywhere —
+  translated by people who then found nothing used them. Both are on screen
+  now: the send button says what it is doing instead of showing a bare spinner,
+  and Cancel is a real button.
+- The README's Sentry recipe did not compile. It called `BugReport(text)`, and
+  `BugReport` is an `abstract final class` — an accident that says something
+  about the name, so the README now shows the `hide` for apps that have a
+  `BugReport` of their own.
+- The Privacy section still claimed the package does not read the device. It
+  has since 0.2.0: device facts are collected by default, non-identifying by
+  construction. Says so now.
+
+**Documented**
+
+- **How to feed it the logger you already have.** Most apps log through
+  `talker`, `logger` or `package:logging` — which is where the HTTP calls are —
+  and without a bridge the bundle arrives missing the most useful thing in it.
+  `BugReport.log` was always the seam; there is now a recipe for it.
+- The one ordering caveat that comes with such a bridge: a direct
+  `BugReport.info(...)` followed by `build()` is ordered, because the entry is
+  queued synchronously and `build` waits for the queue. An entry arriving
+  through a *stream* is not.
+
 ## 0.2.2
 
 - **The sheet opened as a full-screen panel with its content floating in the

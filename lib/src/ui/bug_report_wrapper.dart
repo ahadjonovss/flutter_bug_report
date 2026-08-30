@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bug_report/src/bundle/bundle_format.dart';
+import 'package:flutter_bug_report/src/ui/bug_report_config.dart';
 import 'package:flutter_bug_report/src/ui/bug_report_sheet.dart';
-import 'package:flutter_bug_report/src/ui/bug_report_strings.dart';
-import 'package:flutter_bug_report/src/ui/bug_report_theme.dart';
 import 'package:flutter_bug_report/src/ui/screenshot.dart';
 
 /// What opens the sheet.
@@ -23,14 +21,29 @@ enum BugReportTrigger {
   none,
 }
 
+/// What the gesture does, when opening the report straight away is not it.
+///
+/// [openReport] opens the sheet exactly as the wrapper would have, screenshot
+/// and all — so an internal build can put a menu in front of it without
+/// rebuilding the report path or losing the capture:
+///
+/// ```dart
+/// onTrigger: (context, openReport) => showDebugMenu(context, onReport: openReport),
+/// ```
+typedef BugReportTriggerCallback = Future<void> Function(
+  BuildContext context,
+  Future<void> Function() openReport,
+);
+
 /// Wraps the app so a report is always one gesture away.
 ///
 /// Put it above your navigator so the gesture covers every screen:
 ///
 /// ```dart
 /// BugReportWrapper(
-///   onSubmit: (bundle, description) => myBackend.upload(bundle),
-///   metadata: () async => {'app_version': version, 'platform': platform},
+///   config: BugReportConfig(
+///     onSubmit: (bundle, description) => myBackend.upload(bundle),
+///   ),
 ///   child: MaterialApp(...),
 /// )
 /// ```
@@ -40,17 +53,10 @@ enum BugReportTrigger {
 class BugReportWrapper extends StatefulWidget {
   const BugReportWrapper({
     required this.child,
-    required this.onSubmit,
-    this.metadata,
+    required this.config,
     this.trigger = BugReportTrigger.longPress,
     this.enabled = true,
-    this.strings = const BugReportStrings(),
-    this.theme = const BugReportTheme(),
-    this.minLength = 5,
-    this.maxLength = 500,
-    this.format = BundleFormat.zip,
-    this.limit = 300,
-    this.closeDelay = const Duration(milliseconds: 1200),
+    this.onTrigger,
     this.withScreenshot = false,
     this.screenshotPixelRatio = 1.5,
     this.navigatorKey,
@@ -58,8 +64,11 @@ class BugReportWrapper extends StatefulWidget {
   });
 
   final Widget child;
-  final BugReportSender onSubmit;
-  final BugReportMetadata? metadata;
+
+  /// What a report is, shared with anywhere else that opens one. See
+  /// [BugReportConfig].
+  final BugReportConfig config;
+
   final BugReportTrigger trigger;
 
   /// Whether the gesture is installed at all.
@@ -69,15 +78,14 @@ class BugReportWrapper extends StatefulWidget {
   /// a sheet it will never open.
   final bool enabled;
 
-  final BugReportStrings strings;
-  final BugReportTheme theme;
-  final int minLength;
-  final int maxLength;
-  final BundleFormat format;
-  final int limit;
-
-  /// How long the thanks stays up before the sheet closes itself.
-  final Duration? closeDelay;
+  /// What the gesture does instead of opening the sheet.
+  ///
+  /// Null opens the report directly, which is what a public build wants. An
+  /// internal build usually wants the same gesture to reach more than one
+  /// thing — a debug menu, a flavour switcher, the report among them — and
+  /// this is where that goes, without a second gesture and without a second
+  /// copy of [config].
+  final BugReportTriggerCallback? onTrigger;
 
   /// Whether to offer a screenshot of the screen the report was filed from.
   ///
@@ -95,9 +103,9 @@ class BugReportWrapper extends StatefulWidget {
 
   /// The navigator the sheet opens on.
   ///
-  /// Needed when this sits *above* `MaterialApp`, because then its own context
-  /// has no navigator under it. Pass the same key you gave the app. Leave it
-  /// null when the wrapper is inside the app instead.
+  /// Rarely needed: the wrapper finds the app's navigator itself. Pass one
+  /// when your tree hides it — several navigators, or a shell the search
+  /// reaches before yours.
   final GlobalKey<NavigatorState>? navigatorKey;
 
   @override
@@ -109,7 +117,6 @@ class _BugReportWrapperState extends State<BugReportWrapper> {
   /// included, so without this a second long press would put one report on
   /// top of another.
   bool _isOpen = false;
-
 
   /// Wraps the app when — and only when — a screenshot may be taken. A
   /// repaint boundary is not free, and an app that will never capture one
@@ -145,11 +152,12 @@ class _BugReportWrapperState extends State<BugReportWrapper> {
     return found ?? context;
   }
 
-  Future<void> _open() async {
+  Future<void> _fire() async {
     if (_isOpen) return;
 
-    // Captured before the sheet is up, so the picture is of the screen they
-    // are reporting rather than of the form they are reporting it on.
+    // Captured before anything is up, so the picture is of the screen they
+    // are reporting rather than of the form — or the menu — they reported it
+    // on.
     final shot = widget.withScreenshot
         ? await Screenshot.capture(
             _boundary,
@@ -160,21 +168,16 @@ class _BugReportWrapperState extends State<BugReportWrapper> {
     final context = widget.navigatorKey?.currentContext ?? _navigatorContext();
     if (!context.mounted) return;
 
+    Future<void> openReport() => BugReportSheet.show(
+      context,
+      config: widget.config,
+      screenshot: shot,
+    );
+
     _isOpen = true;
     try {
-      await BugReportSheet.show(
-        context,
-        onSubmit: widget.onSubmit,
-        metadata: widget.metadata,
-        strings: widget.strings,
-        theme: widget.theme,
-        minLength: widget.minLength,
-        maxLength: widget.maxLength,
-        format: widget.format,
-        limit: widget.limit,
-        closeDelay: widget.closeDelay,
-        screenshot: shot,
-      );
+      final intercept = widget.onTrigger;
+      await (intercept == null ? openReport() : intercept(context, openReport));
     } finally {
       _isOpen = false;
     }
@@ -193,9 +196,9 @@ class _BugReportWrapperState extends State<BugReportWrapper> {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onLongPress:
-          widget.trigger == BugReportTrigger.longPress ? _open : null,
+          widget.trigger == BugReportTrigger.longPress ? _fire : null,
       onDoubleTap:
-          widget.trigger == BugReportTrigger.doubleTap ? _open : null,
+          widget.trigger == BugReportTrigger.doubleTap ? _fire : null,
       child: child,
     );
   }
