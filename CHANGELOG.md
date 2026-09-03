@@ -1,3 +1,79 @@
+## 0.5.0
+
+HTTP capture. The request that failed is the thing a bug report is usually
+missing, and the app already knew it.
+
+**Added — `BugReport.httpClient()`**
+
+An `HttpClient` that reports every exchange it carries: the method, the url,
+the status, and how long it took.
+
+```dart
+// Dio
+dio.httpClientAdapter = IOHttpClientAdapter(
+  createHttpClient: BugReport.httpClient,
+);
+
+// package:http
+final client = IOClient(BugReport.httpClient());
+```
+
+`HttpClient` is what Dio, `package:http`, Chopper and Retrofit are all built
+on, so one wrapper reaches all of them and this package still depends on none
+of them.
+
+**Nothing global is replaced.** `HttpOverrides.global` is one slot per isolate
+that `flutter_test` and other packages also want, and a package that takes it
+answers the question for the whole process — including for a Dio instance that
+cached its client before the answer changed. A client the app hands over has
+none of that: install order stops mattering, an app can capture one client and
+not another, and a test that installed its own overrides keeps them.
+
+A request that never arrived is reported too — no host, no route, no
+certificate accepted. There is no response to hang the line on, so it reads
+`GET … failed in 30021ms` with no status, and in a report from a phone that
+could not reach anything it is most of the file.
+
+The level follows the outcome: `info` under 400, `warning` for 4xx, `error` for
+5xx and for a failure. A 404 an app handles is not the same news as a 500.
+
+Bodies are **off by default**, and switched on with `bodies: true`. They are the
+most useful thing here and the most sensitive, and the rest of this package
+already draws that line the same way — route *names* without their arguments, a
+screenshot only when asked. Redaction covers the field names it was told about,
+and a payload of names, addresses and balances is personal whether or not it
+holds a token.
+
+Switched on they are capped at 4 KB each way, and kept only when the content
+type says text — `text/*`, json, xml, form encoding. An image, a protobuf, a
+multipart upload or a body the app asked to decompress itself goes past
+untouched. A body that ran past the cap ends in `…` rather than looking like
+json that broke.
+
+`HttpCapture.client` is the same thing without `BugReport`, for an app that
+wants the exchanges somewhere else. `HttpExchange` is what it hands over.
+
+**On the wrapper itself**
+
+It carries the app's traffic, so it has to be a wrapper before it is a feature.
+Every member of `HttpClient`, `HttpClientRequest` and `HttpClientResponse` is
+delegated; a request body is copied as it is written rather than read back; a
+response body is copied as the app reads it, through the one `listen` every
+other stream method is built on. A callback that throws is swallowed, because a
+line about a request must not be able to break the request.
+
+The endings that are easy to miss are covered: a read that was cancelled
+half-way — which is what a receive timeout looks like from here — a body handed
+to `drain` or `pipe`, a socket taken over by a web socket upgrade, and a
+listener whose handlers were replaced after the fact. Each of those reports
+once, and the exchange is reported once however it ends.
+
+The content type is read through something that cannot throw, because
+`HttpHeaders.contentType` parses on every read and `text/plain; charset="unclosed`
+is enough to make it fail. Nothing else in the app necessarily reads that
+header, and capture asking for it is not a licence to break a request that
+would otherwise have worked.
+
 ## 0.4.0
 
 Redaction, written against a report from an app that read the rules before

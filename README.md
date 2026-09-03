@@ -128,6 +128,65 @@ route: push /payment ← /clients/details
 Route **names** only, never their arguments — an argument is where the client id
 and the phone number live.
 
+### The request that failed
+
+The one thing a bug report is usually missing is the thing the app already knew:
+which request failed, and what came back. Hand your networking layer a client
+that writes it down.
+
+```dart
+// Dio
+dio.httpClientAdapter = IOHttpClientAdapter(
+  createHttpClient: BugReport.httpClient,
+);
+
+// package:http
+final client = IOClient(BugReport.httpClient());
+
+// dart:io
+final client = BugReport.httpClient();
+```
+
+```
+INFO    GET  https://api.example.com/v1/clients 200 in 143ms
+WARNING POST https://api.example.com/v1/auth/otp 422 in 318ms
+ERROR   GET  https://api.example.com/v1/clients failed in 30021ms
+  SocketException: Connection timed out
+```
+
+`HttpClient` is what Dio, `package:http`, Chopper and Retrofit are all built on,
+so wrapping that one class reaches all of them without this package depending on
+any of them.
+
+**Nothing global is replaced.** `HttpOverrides.global` is a single slot that
+`flutter_test` and other packages also want, and taking it would decide the
+question for your whole process. A client you hand over decides nothing, and an
+app can capture one client and not another.
+
+| | |
+| --- | --- |
+| Logged | method, url, status, duration — including a request that never arrived, which is most of what an offline report is made of |
+| Level | `info` under 400, `warning` for 4xx, `error` for 5xx and for a request that failed outright |
+| Bodies | **off until you ask**, then capped at 4 KB each way and only when the content type says text — an image or an upload goes past untouched |
+| Redaction | the same redaction as everything else, on the way in: a token in a response body is gone before it is stored |
+
+```dart
+BugReport.httpClient(
+  bodies: true,                                    // the payload as well as the line
+  ignore: (url) => url.host == 'logs.example.com', // don't report the reporter
+);
+```
+
+```
+WARNING POST https://api.example.com/v1/auth/otp 422 in 318ms
+  {"request":"{\"phone\":\"998901234567\",\"otp\":«redacted»}","response":"{\"code\":\"otp_invalid\"}"}
+```
+
+Bodies are the most useful thing here and the most sensitive, which is why they
+are the one part you have to ask for. Redaction covers the field names it was
+told about — and a payload of names, addresses and balances is personal whether
+or not it holds a token.
+
 ### A screenshot
 
 ```dart
@@ -181,7 +240,7 @@ of it. Whatever you pass in `metadata` wins over what was collected.
 
 ```yaml
 dependencies:
-  flutter_bug_report: ^0.3.0
+  flutter_bug_report: ^0.5.0
 ```
 
 ### With the built-in sheet
@@ -314,6 +373,7 @@ final bundle = await BugReport.build(description: whateverTheyTyped);
 | `debugPrint` | automatic — including from plugins and packages you don't control |
 | bare `print` | wrap `runApp` in `ConsoleCapture.runCaptured` |
 | Flutter errors | `FlutterError.onError` and `PlatformDispatcher.onError` |
+| HTTP | hand `BugReport.httpClient()` to Dio, `package:http` or `dart:io` |
 
 Capture never displaces what was there before it. The console still prints, and
 an existing crash reporter still reports — `flutter_bug_report` chains onto both.
@@ -630,9 +690,14 @@ void main() async {
 
 ## Privacy
 
-- Nothing is sent anywhere. The package has no network code.
+- Nothing is sent anywhere. The package opens no connection of its own — HTTP
+  capture wraps a client your app already has and carries its traffic through
+  unchanged.
 - `MemoryLogStore` writes nothing to disk.
 - Redaction runs before storage, not before export.
+- HTTP is only captured through a client you hand over yourself, and the bodies
+  are off inside that until you ask for them. Switched on they are capped, text
+  only, and redacted like everything else.
 - Device facts are collected by default and are non-identifying by construction —
   platform, OS version, locale, screen, build mode. No device id, no advertising
   id, nothing that names a person. `BugReport.init(deviceFacts: false)` sends

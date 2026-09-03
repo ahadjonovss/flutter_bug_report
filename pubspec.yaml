@@ -1,10 +1,10 @@
 name: flutter_bug_report
 description: >-
   Flutter bug reports with the log already attached. Captures logger output,
-  debugPrint and crashes, redacts secrets, and builds a bounded txt/json/zip.
-  No vendor, no SDK.
+  debugPrint, HTTP and crashes, redacts secrets, and builds a bounded
+  txt/json/zip. No vendor, no SDK.
 
-version: 0.4.0
+version: 0.5.0
 repository: https://github.com/ahadjonovss/flutter_bug_report
 issue_tracker: https://github.com/ahadjonovss/flutter_bug_report/issues
 

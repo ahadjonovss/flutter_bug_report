@@ -1,12 +1,15 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_bug_report/src/bundle/bundle.dart';
 import 'package:flutter_bug_report/src/bundle/bundle_builder.dart';
 import 'package:flutter_bug_report/src/bundle/bundle_format.dart';
 import 'package:flutter_bug_report/src/capture/console_capture.dart';
+import 'package:flutter_bug_report/src/capture/http_capture.dart';
 import 'package:flutter_bug_report/src/context/device_facts.dart';
 import 'package:flutter_bug_report/src/capture/error_capture.dart';
+import 'package:flutter_bug_report/src/model/http_exchange.dart';
 import 'package:flutter_bug_report/src/model/log_entry.dart';
 import 'package:flutter_bug_report/src/model/log_level.dart';
 import 'package:flutter_bug_report/src/redaction/redactor.dart';
@@ -170,6 +173,66 @@ abstract final class BugReport {
     stackTrace: stackTrace,
     extra: extra,
   );
+
+  /// An [HttpClient] that logs every request it carries: the method, the url,
+  /// the status, and how long it took.
+  ///
+  /// Hand it to whatever the app already uses for networking. Nothing global is
+  /// replaced, so nothing else that wants [HttpOverrides] is disturbed, and an
+  /// app can capture one client and not another.
+  ///
+  /// ```dart
+  /// // Dio
+  /// dio.httpClientAdapter = IOHttpClientAdapter(
+  ///   createHttpClient: BugReport.httpClient,
+  /// );
+  ///
+  /// // package:http
+  /// final client = IOClient(BugReport.httpClient());
+  /// ```
+  ///
+  /// [bodies] adds the payloads, redacted like everything else and capped at
+  /// [maxBodyBytes] each way. Off by default: a payload can be personal without
+  /// holding anything a redactor is looking for. [ignore] skips a url
+  /// altogether — your own upload endpoint, for one.
+  static HttpClient httpClient({
+    HttpClient? inner,
+    bool bodies = false,
+    int maxBodyBytes = HttpCapture.defaultMaxBodyBytes,
+    bool Function(Uri url)? ignore,
+  }) => HttpCapture.client(
+    _record,
+    inner: inner,
+    bodies: bodies,
+    maxBodyBytes: maxBodyBytes,
+    ignore: ignore,
+  );
+
+  /// One exchange, as a log line.
+  static void _record(HttpExchange exchange) {
+    final bodies = <String, Object?>{
+      if (exchange.requestBody != null) 'request': exchange.requestBody,
+      if (exchange.responseBody != null) 'response': exchange.responseBody,
+    };
+
+    log(
+      _levelOf(exchange.statusCode),
+      '${exchange.method} ${exchange.url} '
+      '${exchange.statusCode ?? 'failed'} '
+      'in ${exchange.duration.inMilliseconds}ms',
+      error: exchange.error,
+      extra: bodies.isEmpty ? null : bodies,
+    );
+  }
+
+  /// A request that never arrived is worth as much attention as one the server
+  /// failed; a 404 the app handles is worth less.
+  static LogLevel _levelOf(int? statusCode) => switch (statusCode) {
+    null => LogLevel.error,
+    >= 500 => LogLevel.error,
+    >= 400 => LogLevel.warning,
+    _ => LogLevel.info,
+  };
 
   /// Builds the attachment.
   ///
