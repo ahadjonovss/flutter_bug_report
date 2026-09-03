@@ -1,3 +1,77 @@
+## 0.4.0
+
+Redaction, written against a report from an app that read the rules before
+turning body logging on — and found three of them it could not turn on with.
+The redaction rules change behaviour, so the version does too.
+
+**Breaking — a key matches a whole field name**
+
+`Redactor.keys({'pin'})` matched `pin` as a substring of whatever name it
+found it in, but only where the name *ended* with it. So it hid `has_pin`, a
+boolean state flag, and did not hide `phone_number` — a real number, left in
+the clear by a rule the caller had every reason to think covered it. Broad
+enough to catch what it should not, narrow enough to miss what it should, and
+nothing at the call site said which.
+
+A key is a **whole field name** now, counting `-`, `_` and `.` as part of the
+name, and a `*` asks for the rest of it explicitly:
+
+```dart
+Redactor.keys({'pin'});      // pin — not has_pin, not pin_hash
+Redactor.keys({'*token'});   // access_token, x-firebase-token — not token_type
+Redactor.keys({'phone*'});   // phone, phone_number
+Redactor.keys({'*card*'});   // either end
+```
+
+The defaults carry the `*` where they always relied on it, so `*token`,
+`*secret`, `*password` and `*api_key` still reach the names they reached
+before. **Check your own `Redactor.keys` calls for a key you were relying on
+to match inside a longer name** — that is the one thing this release can
+silently take away. A field name you wrote for one shape of it and meant for
+all of them wants the `*` now: `{'phone'}` → `{'phone*'}`.
+
+An empty set now redacts nothing, rather than everything. A pattern built from
+an empty alternation matched every field there is, which is the wrong direction
+to fail in when the set arrived from configuration.
+
+**Breaking — `code` is not a credential**
+
+`code` was in the default key set, and it is the standard name for a
+machine-readable error or status code: `"code":"limit_exceeded"`,
+`"code":"otp_sent"`. That is frequently the one line in a bundle worth reading,
+and every bundle had it destroyed. The verification codes it was there for
+arrive under their own names, and those are listed instead: `otp_code`,
+`sms_code`, `verification_code`, `confirmation_code`.
+
+**Added — the defaults come apart**
+
+`Redactor.defaults` was a list of four things, three of them private, so "the
+defaults, minus one field name" meant `Redactor.defaults.take(3)` and a
+hand-rolled key rule — positionally coupled to a private list, and silently
+wrong the day a fourth pattern is added.
+
+```dart
+redactors: [
+  ...Redactor.defaultPatterns,                              // Bearer, JWT, PAN
+  Redactor.keys(Redactor.defaultKeys.difference({'pin'})),
+],
+```
+
+`Redactor.defaults` is unchanged and still the answer for anyone not
+subtracting anything.
+
+**Fixed — a long id is no longer starred out by chance**
+
+The card rule masked any 13–19 digit run that passed Luhn, and Luhn passes one
+number in ten. A 14-digit product id was one unlucky checksum away from
+arriving as `**********0674`, with nothing in the bundle to say why. It now
+also asks for a length and prefix a scheme issues: fifteen digits wants Amex,
+fourteen wants Diners, thirteen wants Visa.
+
+Sixteen digits stays unconditional. Gating that on the international prefixes
+would have quietly stopped redacting every domestic scheme — Uzcard `8600`,
+Humo `9860`, Mir `2200` — and those are cards to the person whose card it is.
+
 ## 0.3.3
 
 Documentation only.

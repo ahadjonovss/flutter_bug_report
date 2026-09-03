@@ -48,6 +48,61 @@ void main() {
       expect(clean('order 1234567812345678'), contains('1234567812345678'));
     });
 
+    test('an error code survives, and a code that is a secret does not', () {
+      const line =
+          '{"message":"OTP code sent","code":"otp_sent",'
+          '"data":{"is_resend":false}}';
+
+      // The single most useful field in a bug report about a failed request.
+      expect(clean(line), line);
+      expect(clean('{"code":"products_cart_incorrect"}'), contains('products'));
+
+      expect(clean('{"otp_code":"3465"}'), isNot(contains('3465')));
+      expect(clean('{"verification_code":"3465"}'), isNot(contains('3465')));
+      expect(clean('{"sms_code":"3465"}'), isNot(contains('3465')));
+    });
+
+    test('a state flag named after a secret is not a secret', () {
+      final result = clean(
+        '{"access_token":"387606|t4sOm","refresh_token":"9931|zzz",'
+        '"has_pin":true,"token_type":"Bearer"}',
+      );
+
+      expect(result, isNot(contains('387606')));
+      expect(result, isNot(contains('9931')));
+      expect(result, contains('"has_pin":true'));
+    });
+
+    test('a token under a vendor name still goes', () {
+      final result = clean('{"x-firebase-token":"cJ8ZzQ:APA91bF","ok":true}');
+
+      expect(result, isNot(contains('APA91bF')));
+      expect(result, contains('"ok":true'));
+    });
+
+    test('a hyphenated header name is a name, not a pattern', () {
+      expect(clean('set-cookie: session=a9f; Path=/'), isNot(contains('a9f')));
+      expect(clean('x-api-key: k-123'), isNot(contains('k-123')));
+    });
+
+    test('a password under any name goes', () {
+      for (final key in const [
+        'password',
+        'new_password',
+        'old_password',
+        'password_confirmation',
+      ]) {
+        expect(clean('{"$key":"hunter2"}'), isNot(contains('hunter2')));
+      }
+    });
+
+    test('a long numeric id is left alone whatever its checksum', () {
+      // Fourteen digits is a length no card scheme issues under a Visa
+      // prefix, so this holds however the next id comes out of Luhn.
+      expect(clean('variant_id: 46924319850674'), contains('46924319850674'));
+      expect(clean('variant_id: 46924319850673'), contains('46924319850673'));
+    });
+
     test('a line with no secret in it comes back unchanged', () {
       const line = 'GET /clients 200 in 143ms';
 
@@ -80,6 +135,67 @@ void main() {
       final redactor = Redactor.keys(const {'pin'});
 
       expect(redactor.apply('{"amount": 5000}'), contains('5000'));
+    });
+
+    test('matches a whole field name and nothing it is part of', () {
+      final redactor = Redactor.keys(const {'pin'});
+
+      expect(redactor.apply('{"has_pin":true}'), contains('true'));
+      expect(redactor.apply('{"pin_hash":"a9f"}'), contains('a9f'));
+      // A dotted path is a name like any other: `*pin` reaches into it, `pin`
+      // does not, and both of those are readable from the call site.
+      expect(redactor.apply('{"user.pin":"0000"}'), contains('0000'));
+      expect(
+        Redactor.keys(const {'*pin'}).apply('{"user.pin":"0000"}'),
+        isNot(contains('0000')),
+      );
+    });
+
+    test('a trailing * takes the rest of the name', () {
+      final redactor = Redactor.keys(const {'phone*'});
+      final result = redactor.apply(
+        '{"user_id":8786,"phone_number":"923001234567"}',
+      );
+
+      expect(result, isNot(contains('923001234567')));
+      expect(result, contains('8786'));
+    });
+
+    test('a leading * takes whatever the name is prefixed with', () {
+      final redactor = Redactor.keys(const {'*phone'});
+
+      expect(
+        redactor.apply('{"contact_phone":"923001234567"}'),
+        isNot(contains('923001234567')),
+      );
+      // None of it is as much as any of it.
+      expect(redactor.apply('{"phone":"92300"}'), isNot(contains('92300')));
+    });
+
+    test('an empty set redacts nothing at all', () {
+      const line = '{"amount":5000,"status":"ok"}';
+
+      expect(Redactor.keys(const {}).apply(line), line);
+    });
+  });
+
+  group('Redactor.defaults, in pieces', () {
+    test('the key set can be subtracted from', () {
+      final mine = [
+        ...Redactor.defaultPatterns,
+        Redactor.keys(Redactor.defaultKeys.difference(const {'pin'})),
+      ];
+
+      expect(redact('{"pin":"1111"}', mine), contains('1111'));
+      expect(redact('{"otp":"1111"}', mine), isNot(contains('1111')));
+
+      // The value rules come along without being named or counted, which is
+      // the point: a fourth one added here cannot go missing there.
+      expect(
+        redact('card 4242424242424242', mine),
+        contains('************4242'),
+      );
+      expect(redact('auth: Bearer abc.def', mine), isNot(contains('abc.def')));
     });
   });
 }

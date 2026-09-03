@@ -330,8 +330,8 @@ down can't leak from a store somebody later dumps by hand.
 | --- | --- |
 | Auth schemes | `Authorization` headers, `Bearer`/`Basic` tokens — **including the token after the scheme**, not just the word |
 | JWTs | `eyJ…` written out on its own |
-| Card numbers | **Luhn-checked**, so an order id doesn't come out starred. Last four kept |
-| Credential keys | `password`, `otp`, `token`, `refresh_token`, `api_key`, `secret`, `cvv`, `cookie`, and the rest |
+| Card numbers | **Luhn-checked**, and against the lengths and prefixes the schemes issue, so a long id doesn't come out starred. Last four kept |
+| Credential keys | `*password`, `otp`, `*token`, `*api_key`, `*secret`, `cvv`, `cookie`, and the rest — `Redactor.defaultKeys` is the whole list, readable and subtractable |
 
 Add your own, or turn it off knowingly:
 
@@ -344,6 +344,39 @@ await BugReport.init(
   ],
 );
 ```
+
+A key matches a **whole field name**, counting `-`, `_` and `.` as part of the
+name. `{'pin'}` hides `pin` and leaves `has_pin` and `pin_hash` alone — a state
+flag is not a secret, and a bug report that lost it is harder to read for
+nothing. Ask for more with a `*` on the side that may carry anything else:
+
+| Given | Hides | Leaves |
+| --- | --- | --- |
+| `{'pin'}` | `pin`, `PIN`, `"pin"` | `has_pin`, `pin_hash` |
+| `{'*token'}` | `access_token`, `x-firebase-token` | `token_type` |
+| `{'phone*'}` | `phone`, `phone_number` | `contact_phone` |
+| `{'*card*'}` | `card`, `card_number`, `saved_cards` | |
+
+What the defaults **don't** hide is a field named `code`. It's the standard name
+for a machine-readable error or status code — `"code":"limit_exceeded"` — which
+is often the one line in a bundle worth reading. The codes that are secrets are
+named on their own: `otp_code`, `sms_code`, `verification_code`,
+`confirmation_code`.
+
+The defaults come apart, so "the defaults, minus one field name" doesn't mean
+depending on the order of a list:
+
+```dart
+await BugReport.init(
+  redactors: [
+    ...Redactor.defaultPatterns,                                   // Bearer, JWT, PAN
+    Redactor.keys(Redactor.defaultKeys.difference({'pin'})),
+  ],
+);
+```
+
+A pattern added to `defaultPatterns` later arrives through that spread on its
+own. Nothing in a security path is counted or positioned by hand.
 
 ## Bounds
 
