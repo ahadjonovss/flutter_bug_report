@@ -1,3 +1,22 @@
+## 0.5.1
+
+**Fixed — the wiring example could not carry bodies**
+
+The Dio example passed `BugReport.httpClient` as a tear-off. Every argument is
+optional so that it fits, and it does fit — but a tear-off takes every default,
+and `bodies` defaults to off. So an app wired up from the README got the method,
+the url, the status and the duration, and no payloads, with nothing at the call
+site to suggest where they had gone. Came back from a report that was missing
+exactly that.
+
+The examples are closures now, which is where the arguments go:
+
+```dart
+dio.httpClientAdapter = IOHttpClientAdapter(
+  createHttpClient: () => BugReport.httpClient(bodies: true),
+);
+```
+
 ## 0.5.0
 
 HTTP capture. The request that failed is the thing a bug report is usually

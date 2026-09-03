@@ -137,7 +137,7 @@ that writes it down.
 ```dart
 // Dio
 dio.httpClientAdapter = IOHttpClientAdapter(
-  createHttpClient: BugReport.httpClient,
+  createHttpClient: () => BugReport.httpClient(),
 );
 
 // package:http
@@ -171,9 +171,13 @@ app can capture one client and not another.
 | Redaction | the same redaction as everything else, on the way in: a token in a response body is gone before it is stored |
 
 ```dart
-BugReport.httpClient(
-  bodies: true,                                    // the payload as well as the line
-  ignore: (url) => url.host == 'logs.example.com', // don't report the reporter
+// Dio, and the reason the wiring above is a closure and not `BugReport.httpClient`
+// on its own: a torn-off method has nowhere to put these.
+dio.httpClientAdapter = IOHttpClientAdapter(
+  createHttpClient: () => BugReport.httpClient(
+    bodies: true,                                    // the payload as well as the line
+    ignore: (url) => url.host == 'logs.example.com', // don't report the reporter
+  ),
 );
 ```
 

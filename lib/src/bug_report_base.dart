@@ -184,12 +184,15 @@ abstract final class BugReport {
   /// ```dart
   /// // Dio
   /// dio.httpClientAdapter = IOHttpClientAdapter(
-  ///   createHttpClient: BugReport.httpClient,
+  ///   createHttpClient: () => BugReport.httpClient(bodies: true),
   /// );
   ///
   /// // package:http
-  /// final client = IOClient(BugReport.httpClient());
+  /// final client = IOClient(BugReport.httpClient(bodies: true));
   /// ```
+  ///
+  /// A closure rather than `BugReport.httpClient` torn off: a tear-off takes
+  /// every default, and there is nowhere in it to say otherwise.
   ///
   /// [bodies] adds the payloads, redacted like everything else and capped at
   /// [maxBodyBytes] each way. Off by default: a payload can be personal without
