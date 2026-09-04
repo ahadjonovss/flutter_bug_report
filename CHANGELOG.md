@@ -1,3 +1,52 @@
+## 0.6.0
+
+Redaction, from a second app's payloads. The rules change what they catch, so
+the version says so.
+
+**Fixed — a key now matches its words however the API joined them**
+
+`Redactor.keys({'phone_number'})` matched `phone_number` and walked straight
+past `phoneNumber`. Same field, same number, one naming convention apart — and
+nothing at the call site to say which of the two the rule had covered. The rule
+was written against whichever spelling the author happened to be looking at.
+
+The words of a key are now separator-agnostic: `phone_number` finds
+`phone_number`, `phoneNumber`, `phone-number` and `phonenumber`. A name is
+still matched whole, so `phone_numbers` and `old_phone_number` are still
+different fields.
+
+This reaches the defaults too, which is where it was doing the most damage:
+`otp_code` covers `otpCode`, `card_number` covers `cardNumber`, `*api_key`
+covers `apiKey`, `set-cookie` covers `setCookie`. `*api-key` and `*apikey` were
+the same rule spelled twice and are gone from `defaultKeys`.
+
+**Fixed — a pin under the names it is asked for twice**
+
+`defaultKeys` had `pin`, exactly, and `password` had `*password` and
+`password*`. So `new_pin`, `confirm_pin` and `pin_code` went into bundles in
+the clear, from an app whose whole auth flow is a pin.
+
+Named one by one rather than with a `*`, because `*pin` takes `has_pin` and
+`pin_attempts` with it — state a bug is read from, not secrets:
+`pin_code`, `pin_confirmation`, `new_pin`, `old_pin`, `current_pin`,
+`confirm_pin`, `repeat_pin`. Each covers its own camelCase spelling now. Also
+`cvv2` and `cvc2`, which are what the field is called about as often as not.
+
+`Redactor.defaultKeys.difference({'pin'})` still turns the pin rule off. The
+names around it are separate keys and come off separately.
+
+**Fixed — a redactor of your own can no longer take the caller down with it**
+
+`BugReport.log` documented that nothing in it throws, and redaction ran outside
+the guard that made that true. A custom `Redactor.apply` that threw — or an
+error object whose `toString` threw — came back out at whatever line was doing
+the logging, which is exactly the line already dealing with a problem.
+
+An entry that cannot be redacted is not stored, since redaction is the gate it
+has to pass. What is stored in its place says the entry was dropped and names
+the type that failed — not its message, which is where the text that was not
+redacted would be.
+
 ## 0.5.1
 
 **Fixed — the wiring example could not carry bodies**

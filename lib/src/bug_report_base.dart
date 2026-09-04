@@ -137,7 +137,10 @@ abstract final class BugReport {
   ///
   /// Returns immediately: the entry is redacted and queued, and the store's
   /// write happens after the caller has moved on. Nothing here throws — a
-  /// logger that can fail is a logger that turns a bug into two.
+  /// logger that can fail is a logger that turns a bug into two. That covers a
+  /// store that fails, a redactor of your own that throws, and an error whose
+  /// own `toString` throws; an entry that cannot be redacted is dropped rather
+  /// than stored unredacted, and the line left in its place says so.
   static void log(
     LogLevel level,
     String message, {
@@ -346,8 +349,9 @@ class _Runtime {
   }) {
     if (level.index < minimumLevel.index) return;
 
-    add(
-      _clean(
+    final LogEntry entry;
+    try {
+      entry = _clean(
         LogEntry(
           level: level,
           message: message,
@@ -355,8 +359,23 @@ class _Runtime {
           stackTrace: stackTrace?.toString(),
           extra: extra,
         ),
-      ),
-    );
+      );
+    } catch (failure) {
+      // Redaction is the gate an entry has to pass to be stored, and a
+      // redactor of your own — or a `toString` on what was thrown — can throw
+      // on the way through it. So the entry does not go in; only the fact that
+      // it existed does, named by the type that failed rather than by its
+      // message, which is where the unredacted text would be.
+      add(
+        LogEntry(
+          level: LogLevel.error,
+          message: 'an entry was dropped: redaction threw ${failure.runtimeType}',
+        ),
+      );
+      return;
+    }
+
+    add(entry);
   }
 
   /// Queues an entry that has already been through redaction.

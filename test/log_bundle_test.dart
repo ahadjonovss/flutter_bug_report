@@ -204,6 +204,41 @@ void main() {
       await expectLater(BugReport.flush(), completes);
     });
 
+    test('a redactor that throws costs the entry, not the caller', () async {
+      await BugReport.init(
+        redactors: [_BrokenRedactor()],
+        captureConsole: false,
+        captureErrors: false,
+      );
+
+      expect(
+        () => BugReport.info('card 4242424242424242'),
+        returnsNormally,
+      );
+
+      final entry = (await BugReport.entries()).single;
+
+      // The entry did not pass the gate, so it is not stored — and what
+      // replaces it names the type that failed, not its message, which is
+      // where the text that was not redacted would be.
+      expect(entry.level, LogLevel.error);
+      expect(entry.message, contains('redaction threw'));
+      expect(entry.message, contains('StateError'));
+      expect(entry.message, isNot(contains('4242')));
+    });
+
+    test('an error whose toString throws costs the entry too', () async {
+      await BugReport.init(captureConsole: false, captureErrors: false);
+
+      expect(
+        () => BugReport.error('could not pay', error: _BrokenError()),
+        returnsNormally,
+      );
+
+      expect((await BugReport.entries()).single.message,
+          contains('redaction threw'));
+    });
+
     test('a bundle from an empty session is still a bundle', () async {
       await BugReport.init(captureConsole: false, captureErrors: false);
 
@@ -216,6 +251,19 @@ void main() {
       expect(bundle.fileName, endsWith('.zip'));
     });
   });
+}
+
+/// A redactor of the kind an app writes for itself, on the day its own rule
+/// throws instead of matching.
+class _BrokenRedactor implements Redactor {
+  @override
+  String apply(String input) => throw StateError('a rule of my own');
+}
+
+/// What an app throws when even describing the failure fails.
+class _BrokenError {
+  @override
+  String toString() => throw StateError('cannot describe myself');
 }
 
 /// A store that fails at everything, to prove a failing store cannot take the

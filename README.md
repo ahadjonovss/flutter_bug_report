@@ -244,7 +244,7 @@ of it. Whatever you pass in `metadata` wins over what was collected.
 
 ```yaml
 dependencies:
-  flutter_bug_report: ^0.5.0
+  flutter_bug_report: ^0.6.0
 ```
 
 ### With the built-in sheet
@@ -469,7 +469,7 @@ down can't leak from a store somebody later dumps by hand.
 | Auth schemes | `Authorization` headers, `Bearer`/`Basic` tokens — **including the token after the scheme**, not just the word |
 | JWTs | `eyJ…` written out on its own |
 | Card numbers | **Luhn-checked**, and against the lengths and prefixes the schemes issue, so a long id doesn't come out starred. Last four kept |
-| Credential keys | `*password`, `otp`, `*token`, `*api_key`, `*secret`, `cvv`, `cookie`, and the rest — `Redactor.defaultKeys` is the whole list, readable and subtractable |
+| Credential keys | `*password`, `pin` and the names it arrives under twice, `otp`, `*token`, `*api_key`, `*secret`, `cvv`, `cookie`, and the rest — `Redactor.defaultKeys` is the whole list, readable and subtractable |
 
 Add your own, or turn it off knowingly:
 
@@ -494,6 +494,16 @@ nothing. Ask for more with a `*` on the side that may carry anything else:
 | `{'*token'}` | `access_token`, `x-firebase-token` | `token_type` |
 | `{'phone*'}` | `phone`, `phone_number` | `contact_phone` |
 | `{'*card*'}` | `card`, `card_number`, `saved_cards` | |
+
+A key written with words in it matches those words **however the API joined
+them**, so one rule covers the naming convention you didn't write it against:
+
+| Given | Hides | Leaves |
+| --- | --- | --- |
+| `{'phone_number'}` | `phone_number`, `phoneNumber`, `phone-number`, `phonenumber` | `phone_numbers`, `old_phone_number` |
+
+The name is still matched whole. A convention away is the miss nobody notices;
+a longer name that merely starts the same way is a different field.
 
 What the defaults **don't** hide is a field named `code`. It's the standard name
 for a machine-readable error or status code — `"code":"limit_exceeded"` — which

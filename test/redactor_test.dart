@@ -177,6 +177,97 @@ void main() {
 
       expect(Redactor.keys(const {}).apply(line), line);
     });
+
+    test('the words of a key match however the api joined them', () {
+      // A field name is one naming convention away from the one the rule was
+      // written against, and that is the miss nobody notices.
+      final redactor = Redactor.keys(const {'phone_number'});
+
+      for (final spelling in [
+        '{"phone_number":"923001234567"}',
+        '{"phoneNumber":"923001234567"}',
+        '{"phone-number":"923001234567"}',
+        '{"phonenumber":"923001234567"}',
+        '{"PhoneNumber":"923001234567"}',
+      ]) {
+        expect(
+          redactor.apply(spelling),
+          isNot(contains('923001234567')),
+          reason: spelling,
+        );
+      }
+    });
+
+    test('a name is still whole, however its words are joined', () {
+      final redactor = Redactor.keys(const {'phone_number'});
+
+      // The words are optional-separator, not optional-anything: a longer
+      // name that merely starts the same way is a different field.
+      expect(
+        redactor.apply('{"phone_numbers":[1,2]}'),
+        '{"phone_numbers":[1,2]}',
+      );
+      expect(
+        redactor.apply('{"old_phone_number":"92300"}'),
+        '{"old_phone_number":"92300"}',
+      );
+    });
+  });
+
+  group('Redactor.defaults, the names it is easy to write around', () {
+    // Each of these arrived from a real payload that walked past the rule
+    // meant to cover it.
+    test('a pin under any of the names one is asked for twice', () {
+      for (final field in [
+        'pin',
+        'new_pin',
+        'newPin',
+        'old_pin',
+        'current_pin',
+        'confirm_pin',
+        'repeat_pin',
+        'pin_code',
+        'pinCode',
+        'pin_confirmation',
+      ]) {
+        expect(clean('{"$field":"1111"}'), isNot(contains('1111')),
+            reason: field);
+      }
+    });
+
+    test('but not the flags and counters a pin bug is read from', () {
+      for (final line in [
+        '{"has_pin":true}',
+        '{"hasPin":true}',
+        '{"is_pin_set":false}',
+        '{"pin_attempts":2}',
+      ]) {
+        expect(clean(line), line);
+      }
+    });
+
+    test('a camelCase spelling of a key that was written with words', () {
+      for (final field in ['otpCode', 'cardNumber', 'apiKey', 'setCookie']) {
+        expect(clean('{"$field":"secretvalue"}'), isNot(contains('secretvalue')),
+            reason: field);
+      }
+    });
+
+    test('a cvv with a 2 after it', () {
+      expect(clean('{"cvv2":"123"}'), isNot(contains('123')));
+      expect(clean('{"cvc2":"123"}'), isNot(contains('123')));
+    });
+
+    test('and still nothing that merely starts like one of them', () {
+      for (final line in [
+        '{"pan_india":true}',
+        '{"panel_id":7}',
+        '{"token_type":"Bearer"}',
+        '{"otp_retry_after":30}',
+      ]) {
+        expect(clean(line), line);
+      }
+    });
   });
 
   group('Redactor.defaults, in pieces', () {

@@ -68,7 +68,17 @@ abstract interface class Redactor {
     '*password',
     'password*',
     'passwd',
+    // Named one by one rather than as `*pin` or `pin*`, which would take
+    // `has_pin` and `pin_attempts` with them — state a bug is read from, not
+    // secrets. Each of these also covers the camelCase spelling of itself.
     'pin',
+    'pin_code',
+    'pin_confirmation',
+    'new_pin',
+    'old_pin',
+    'current_pin',
+    'confirm_pin',
+    'repeat_pin',
     'otp',
     'otp_code',
     'sms_code',
@@ -77,9 +87,9 @@ abstract interface class Redactor {
     // `access_token`, `refresh_token`, `id_token`, `x-firebase-token`, and the
     // next one somebody invents. Not `token_type`, which says `Bearer`.
     '*token',
+    // Reaches `apiKey` and `x-api-key` too: a key matches its words however
+    // they were joined.
     '*api_key',
-    '*api-key',
-    '*apikey',
     '*secret',
     '*session',
     'session_id',
@@ -88,7 +98,9 @@ abstract interface class Redactor {
     'card_number',
     'pan',
     'cvv',
+    'cvv2',
     'cvc',
+    'cvc2',
   };
 
   /// `Bearer eyJ…` wherever it is written out rather than sent as a header.
@@ -191,8 +203,23 @@ class _KeyRedactor implements Redactor {
 
   static String _alternation(Set<String> keys) => keys.map(_key).join('|');
 
+  /// What may stand between two words of a name, so that one key covers the
+  /// spelling the API actually chose. Optional rather than required, because
+  /// `phoneNumber` has nothing between its words at all — and the match is
+  /// case-insensitive, which is what finds the hump.
+  static const String _wordBreak = r'[-_.]?';
+
+  /// Where one word of a requested key ends and the next begins.
+  static final RegExp _words = RegExp(r'[-_.\s]+');
+
   /// One key, whole, with a `*` on either side standing for the rest of a
   /// field name — none of it, or as much as there is.
+  ///
+  /// A key written with words in it matches the same words however the API
+  /// joined them: `phone_number` finds `phone_number`, `phoneNumber`,
+  /// `phone-number` and `phonenumber`. A field name is a naming convention
+  /// away from the one somebody wrote the rule against, and a rule that misses
+  /// on that is the kind of miss nobody notices.
   static String _key(String key) {
     var name = key;
     final open = name.startsWith('*');
@@ -202,8 +229,13 @@ class _KeyRedactor implements Redactor {
 
     final before = open ? '$_keyCharacter*' : '';
     final after = close ? '$_keyCharacter*' : '';
+    final words = name
+        .split(_words)
+        .where((word) => word.isNotEmpty)
+        .map(RegExp.escape)
+        .join(_wordBreak);
 
-    return '$before${RegExp.escape(name)}$after';
+    return '$before$words$after';
   }
 
   final RegExp? _pattern;
