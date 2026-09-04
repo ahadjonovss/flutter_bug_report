@@ -4,7 +4,7 @@ description: >-
   debugPrint, HTTP and crashes, redacts secrets, and builds a bounded
   txt/json/zip. No vendor, no SDK.
 
-version: 0.6.0
+version: 0.6.1
 repository: https://github.com/ahadjonovss/flutter_bug_report
 issue_tracker: https://github.com/ahadjonovss/flutter_bug_report/issues
 

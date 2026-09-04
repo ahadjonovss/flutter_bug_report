@@ -1,3 +1,9 @@
+## 0.6.1
+
+The prompt for wiring this up with an agent is linked from the top of the page
+now, beside the viewer. It was added in 0.5.1 and sat where you would only find
+it by scrolling past everything it is meant to save you from reading.
+
 ## 0.6.0
 
 Redaction, from a second app's payloads. The rules change what they catch, so

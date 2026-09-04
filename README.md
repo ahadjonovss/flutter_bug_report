@@ -21,6 +21,11 @@
   <sub>Reads <code>.txt</code>, <code>.json</code> and <code>.zip</code> in the browser. No upload, no server, no signup.</sub>
 </p>
 
+<p align="center">
+  <b><a href="#handing-it-to-an-agent">Integrating with an AI agent&nbsp;&rarr;</a></b><br>
+  <sub>A prompt to paste at the root of your app. Seven things an integration gets wrong quietly.</sub>
+</p>
+
 ---
 
 Every bug report that arrives as *"it didn't work"* costs somebody an afternoon.
