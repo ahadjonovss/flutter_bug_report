@@ -17,6 +17,15 @@ dio.httpClientAdapter = IOHttpClientAdapter(
 );
 ```
 
+**Added — a prompt for handing the wiring to an agent**
+
+Seven things an integration gets wrong quietly, written against the two ways it
+actually has: init after the client was built, a tear-off instead of a closure,
+the old interceptor left in place logging everything twice, redaction rules
+written from guesses at field names rather than read out of the DTOs, spelling
+variants a literal match does not reach, `extra` values that are not strings and
+so are not redacted, and shipping without reading a bundle.
+
 ## 0.5.0
 
 HTTP capture. The request that failed is the thing a bug report is usually

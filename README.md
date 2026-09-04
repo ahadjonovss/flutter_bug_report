@@ -369,6 +369,80 @@ the original API. `BugReport.build()` returns the bundle; the UI is yours:
 final bundle = await BugReport.build(description: whateverTheyTyped);
 ```
 
+## Handing it to an agent
+
+Most of what goes wrong in an integration goes wrong quietly: the lines arrive
+and the payloads don't, or a field name is one underscore away from the rule
+meant to cover it. This prompt is written against the two ways that has actually
+happened. Paste it at the root of the app.
+
+````text
+Wire `flutter_bug_report` into this app. Read its README first, then work
+through these — each one is a mistake that compiles and ships.
+
+1. INIT FIRST. `BugReport.init(...)` must run before the HTTP client is built
+   — before the service locator or DI setup that constructs Dio. Logging done
+   earlier is carried over; a client built earlier is not wrapped.
+
+2. HTTP THROUGH A CLOSURE, NOT A TEAR-OFF.
+
+   dio.httpClientAdapter = IOHttpClientAdapter(
+     createHttpClient: () => BugReport.httpClient(bodies: true),
+   );
+
+   `createHttpClient: BugReport.httpClient` also compiles, and takes every
+   default with it — including bodies off. That gives you method, url, status
+   and duration, and no payloads, with nothing at the call site saying why.
+
+   If the app customises its own HttpClient (badCertificateCallback,
+   idleTimeout, a proxy), keep that code and pass the result as `inner:`
+   rather than dropping it. Pass `ignore:` for file uploads and for your own
+   log-shipping endpoint.
+
+3. DELETE THE HTTP LOGGER YOU ARE REPLACING. Find the Dio interceptor or
+   HttpOverrides that was writing request and response lines into storage and
+   remove it, or every request is logged twice. Keep an interceptor only for
+   something the wrapper cannot see from inside the socket — a deserialised
+   error object, for instance.
+
+4. LIST THIS APP'S OWN FIELD NAMES, THEN PROVE THEM. Start from
+   `...Redactor.defaults` and add the names this API actually uses — read them
+   out of the DTOs and json keys, do not guess. A key matches a whole field
+   name; `*` goes on the side that varies. Then write a throwaway test that
+   runs real payloads through the exact list `init` gets, and READ IT:
+
+   final redactors = [ ... ];
+   String redact(String s) => redactors.fold(s, (a, r) => r.apply(a));
+
+   test('probe', () {
+     for (final sample in [ /* real request and response bodies */ ]) {
+       print('IN  $sample\nOUT ${redact(sample)}');
+     }
+   });
+
+   Check both directions. Every secret gone, and every field a bug is
+   diagnosed from still there: `code`, `status`, ids, amounts, and state flags
+   like `has_pin`. Over-redaction has a cost — `{'*name'}` hides the customer's
+   name and the product's.
+
+5. PUT THE SPELLING VARIANTS IN THE PROBE. Names are matched literally, so
+   covering `phone_number` does not cover `phoneNumber`. Whichever of these
+   this API uses, include them: camelCase forms, `latitude`/`longitude` against
+   a rule written for `lat`/`long`, `email_address`, `cnic_number`, `new_pin`,
+   `otpCode`. `{'*phone*'}` covers a name from either side; the narrow rule
+   only covers what it says.
+
+6. `extra` IS REDACTED ONLY WHERE THE VALUE IS A STRING. An int, bool or
+   nested map in that map passes through untouched, and the map's own key is
+   not read as a field name. Put anything sensitive in as a string.
+
+7. VERIFY BY READING A BUNDLE, not by assuming.
+   `await BugReport.build(format: BundleFormat.txt)` — confirm the HTTP entries
+   carry `request` and `response`, that a request that never arrived is there
+   with no status, and that nothing personal survived. Missing payloads mean
+   `bodies: true` never reached the client: look for a tear-off.
+````
+
 ## What it collects
 
 | Source | How |
