@@ -1,3 +1,36 @@
+## 0.6.2
+
+**Fixed — the recommended snippet still could not carry payloads**
+
+0.5.1 fixed the tear-off and left the same hole one layer up: the headline Dio
+wiring was `() => BugReport.httpClient()`, a closure with nothing in it. An
+agent told to read this README copies that snippet, and the argument it never
+saw stays at its default. Two apps wired this up and shipped bundles with every
+status line and not one payload — the second one after following the agent
+prompt, which loses to the canonical snippet because the canonical snippet is
+the one that looks finished.
+
+`bodies` is spelled out in every wiring example now. The default in code is
+unchanged and still off; what changed is that the reader can see the argument
+exists and decides in their own diff. The prompt asks for the answer written
+down either way — `bodies: false` with a comment is a decision, an omitted
+argument is not.
+
+**Added — Dio in the loop where the wrapper is tested**
+
+Every HTTP test drove `dart:io` by hand, which cannot tell you whether Dio is
+fine. Eight tests now go through `IOHttpClientAdapter`: both bodies of a post, a
+gzipped response, a form-encoded body, `ResponseType.stream`, a connection that
+never opened, and a receive timeout that calls `abort()` mid-body. Dio is a dev
+dependency only — the package still depends on none of them.
+
+**Added — an eighth item in the agent prompt**
+
+A `BlocObserver` that logs `state.runtimeType` writes one line per emit, and a
+state class with fields emits on every keystroke. A real bundle came back 40%
+`LoginState -> LoginState`: a buffer spent on nothing, and the window the bug
+was in dropped off the other end.
+
 ## 0.6.1
 
 The prompt for wiring this up with an agent is linked from the top of the page

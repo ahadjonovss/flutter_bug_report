@@ -4,7 +4,7 @@ description: >-
   debugPrint, HTTP and crashes, redacts secrets, and builds a bounded
   txt/json/zip. No vendor, no SDK.
 
-version: 0.6.1
+version: 0.6.2
 repository: https://github.com/ahadjonovss/flutter_bug_report
 issue_tracker: https://github.com/ahadjonovss/flutter_bug_report/issues
 
@@ -33,3 +33,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+
+  # Not a dependency of the package — only of its tests. The HTTP wrapper is
+  # sold on reaching Dio, so Dio is in the loop where that is checked.
+  dio: ^5.9.0

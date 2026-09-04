@@ -23,7 +23,7 @@
 
 <p align="center">
   <b><a href="#handing-it-to-an-agent">Integrating with an AI agent&nbsp;&rarr;</a></b><br>
-  <sub>A prompt to paste at the root of your app. Seven things an integration gets wrong quietly.</sub>
+  <sub>A prompt to paste at the root of your app. Eight things an integration gets wrong quietly.</sub>
 </p>
 
 ---
@@ -142,15 +142,23 @@ that writes it down.
 ```dart
 // Dio
 dio.httpClientAdapter = IOHttpClientAdapter(
-  createHttpClient: () => BugReport.httpClient(),
+  createHttpClient: () => BugReport.httpClient(
+    bodies: true, // the payloads as well as the line — see Bodies below
+  ),
 );
 
 // package:http
-final client = IOClient(BugReport.httpClient());
+final client = IOClient(BugReport.httpClient(bodies: true));
 
 // dart:io
-final client = BugReport.httpClient();
+final client = BugReport.httpClient(bodies: true);
 ```
+
+`bodies` is spelled out here rather than left to its default, which is **off**.
+Two apps wired this up from a snippet that omitted it and shipped bundles with
+every status line and not one payload — the half of the feature worth having,
+absent, and nothing in their own diff to say so. Read the Bodies row before you
+keep the line; deciding against it is fine, not knowing it was there is not.
 
 ```
 INFO    GET  https://api.example.com/v1/clients 200 in 143ms
@@ -175,12 +183,14 @@ app can capture one client and not another.
 | Bodies | **off until you ask**, then capped at 4 KB each way and only when the content type says text — an image or an upload goes past untouched |
 | Redaction | the same redaction as everything else, on the way in: a token in a response body is gone before it is stored |
 
+A closure rather than `BugReport.httpClient` torn off, because a torn-off method
+has nowhere to put any of that:
+
 ```dart
-// Dio, and the reason the wiring above is a closure and not `BugReport.httpClient`
-// on its own: a torn-off method has nowhere to put these.
 dio.httpClientAdapter = IOHttpClientAdapter(
   createHttpClient: () => BugReport.httpClient(
-    bodies: true,                                    // the payload as well as the line
+    bodies: true,
+    maxBodyBytes: 8192,                              // 4 KB each way by default
     ignore: (url) => url.host == 'logs.example.com', // don't report the reporter
   ),
 );
@@ -249,7 +259,7 @@ of it. Whatever you pass in `metadata` wins over what was collected.
 
 ```yaml
 dependencies:
-  flutter_bug_report: ^0.6.0
+  flutter_bug_report: ^0.6.2
 ```
 
 ### With the built-in sheet
@@ -377,9 +387,10 @@ final bundle = await BugReport.build(description: whateverTheyTyped);
 ## Handing it to an agent
 
 Most of what goes wrong in an integration goes wrong quietly: the lines arrive
-and the payloads don't, or a field name is one underscore away from the rule
-meant to cover it. This prompt is written against the two ways that has actually
-happened. Paste it at the root of the app.
+and the payloads don't, a field name is one underscore away from the rule meant
+to cover it, or the log fills with entries that say nothing. Every item below
+came back from a real integration doing exactly that. Paste it at the root of
+the app.
 
 ````text
 Wire `flutter_bug_report` into this app. Read its README first, then work
@@ -389,15 +400,23 @@ through these — each one is a mistake that compiles and ships.
    — before the service locator or DI setup that constructs Dio. Logging done
    earlier is carried over; a client built earlier is not wrapped.
 
-2. HTTP THROUGH A CLOSURE, NOT A TEAR-OFF.
+2. DECIDE ABOUT `bodies` OUT LOUD, AND WRITE THE ANSWER DOWN.
 
    dio.httpClientAdapter = IOHttpClientAdapter(
      createHttpClient: () => BugReport.httpClient(bodies: true),
    );
 
-   `createHttpClient: BugReport.httpClient` also compiles, and takes every
-   default with it — including bodies off. That gives you method, url, status
-   and duration, and no payloads, with nothing at the call site saying why.
+   This is the single most common way this integration ends up half-working.
+   `bodies` defaults to OFF, and both of these leave it there:
+
+     createHttpClient: BugReport.httpClient        // torn off, takes every default
+     createHttpClient: () => BugReport.httpClient()  // closure, still no argument
+
+   Either one compiles and both look finished. What ships is method, url,
+   status and duration with not one payload — and nothing in the diff to say
+   why. Do not leave `bodies` unwritten. Put `bodies: true` in, or put
+   `bodies: false` in with a one-line comment saying whose decision that was.
+   An omitted argument is not a decision anybody can review.
 
    If the app customises its own HttpClient (badCertificateCallback,
    idleTimeout, a proxy), keep that code and pass the result as `inner:`
@@ -441,11 +460,23 @@ through these — each one is a mistake that compiles and ships.
    nested map in that map passes through untouched, and the map's own key is
    not read as a field name. Put anything sensitive in as a string.
 
-7. VERIFY BY READING A BUNDLE, not by assuming.
-   `await BugReport.build(format: BundleFormat.txt)` — confirm the HTTP entries
-   carry `request` and `response`, that a request that never arrived is there
-   with no status, and that nothing personal survived. Missing payloads mean
-   `bodies: true` never reached the client: look for a tear-off.
+7. VERIFY BY READING A BUNDLE, not by assuming. Exercise a real screen, build
+   one, and open it:
+
+   final bundle = await BugReport.build(format: BundleFormat.txt);
+   print(utf8.decode(bundle.bytes));
+
+   Three things to check by eye, and do not report this done without them:
+   every HTTP entry carries `request` and `response` (if not, go back to 2);
+   a request that never arrived is in there with no status; and nothing
+   personal survived. Count the lines that say nothing, too — see 8.
+
+8. IF YOU ADD A BlocObserver, MAKE THE LINE SAY WHAT CHANGED. Logging
+   `state.runtimeType` is one line per emit, and a state class with fields
+   emits on every keystroke — so a real bundle came back 40% `LoginState ->
+   LoginState`, which is a buffer spent on nothing. Skip a transition whose
+   type did not change, or log a status field. Not `state.toString()`: that is
+   how the phone number in the state gets into the log.
 ````
 
 ## What it collects
